@@ -17,7 +17,7 @@ class Board:
 		self.tilesize = int(min(width, height) / 8)
 		self.board = self.build_board()
 		self.running = True
-		self.pieces = []
+		self.pieces: list[Piece] = []
 		self.pieces, self.gamestate = \
 			self.parse_FEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
@@ -38,16 +38,14 @@ class Board:
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					self.running = False
+
+			# Affichage
 			self.screen.blit(self.board, self.board.get_rect())
 			for piece in self.pieces:
 				self.screen.blit(piece.image,
 				                 (piece.current_square[0] * self.tilesize,
 				                  piece.current_square[1] * self.tilesize))
 			pygame.display.update()
-
-	def create_pieces(self):
-		pass
-		# self.pieces.append(Piece(1 << 5, 0, self.tilesize))
 
 	def parse_FEN(self, fen: str) -> tuple[list[Piece], int]:
 		pieces = []
@@ -74,7 +72,8 @@ class Board:
 				if char.isnumeric():
 					skip = int(char) - 1
 					continue
-				pieces.append(Piece(PIECES[char.upper()], int(char.islower()), self.tilesize, (f, l)))
+				pieces.append(Piece.new_piece(int(char.islower()), PIECES[char.upper()], (f, l), self.tilesize))
+				# pieces.append(Piece(PIECES[char.upper()], int(char.islower()), self.tilesize, (f, l)))
 
 		# A qui de jouer :
 		if split[1] == 'w':  # Blancs
