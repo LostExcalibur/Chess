@@ -18,7 +18,8 @@ class Board:
 		self.board = self.build_board()
 		self.running = True
 		self.pieces = []
-		self.create_pieces()
+		self.pieces, self.gamestate = \
+			self.parse_FEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
 	def build_board(self):
 		board = pygame.Surface((self.tilesize * 8, self.tilesize * 8))
@@ -45,12 +46,16 @@ class Board:
 			pygame.display.update()
 
 	def create_pieces(self):
-		self.pieces = self.parse_FEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+		pass
 		# self.pieces.append(Piece(1 << 5, 0, self.tilesize))
 
-	def parse_FEN(self, fen: str) -> list[Piece]:
+	def parse_FEN(self, fen: str) -> tuple[list[Piece], int]:
 		pieces = []
-		gamestate = 0b11111111
+		# De gauche à droite :
+		# A qui de jouer : 1 noirs, 0 blancs
+		# Echecs ? Noirs puis blancs
+		# Roque coté reine puis roi, noirs puis blancs
+		gamestate = 0b0001111
 
 		split = fen.split(" ")
 		lines = split[0].split("/")
@@ -71,4 +76,27 @@ class Board:
 					continue
 				pieces.append(Piece(PIECES[char.upper()], int(char.islower()), self.tilesize, (f, l)))
 
-		return pieces
+		# A qui de jouer :
+		if split[1] == 'w':  # Blancs
+			gamestate &= 0b0111111
+		elif split[1] == 'b':  # Noirs
+			gamestate |= 0b1000000
+		else:
+			raise ValueError(f"Invalid fen :\n{fen}")
+
+		# Roque
+		if split[2] == '-':  # Personne peut roquer
+			gamestate &= 0b1110000
+		else:
+			if "Q" in split[2]:
+				gamestate |= 0b0000010
+			if "K" in split[2]:
+				gamestate |= 0b0000001
+			if "q" in split[2]:
+				gamestate |= 0b0001000
+			if "k" in split[2]:
+				gamestate |= 0b0000100
+
+		# Le reste c'est en passant et le nombre de coup, pour l'instant ça m'intéresse pas
+
+		return pieces, gamestate
