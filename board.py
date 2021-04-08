@@ -33,7 +33,7 @@ class Board:
 		self.beginning_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 		self.testing_FEN = "r1bqkbnr/pppp1pp1/2n4p/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"
 		self.pieces, self.gamestate = \
-			self.parse_FEN("rnbqkbnr/pppPpppp/8/8/8/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1")
+			self.parse_FEN("rnbqkbn1/pppPppp1/5p2/7r/4R3/6P1/PPPP1PP1/RNBQKBN1 w Qq - 0 1")
 
 	def build_board(self):
 		board = pygame.Surface((self.tilesize * 8, self.tilesize * 8))
@@ -49,6 +49,7 @@ class Board:
 	def run(self):
 		pygame.display.set_caption(self.caption)
 		last_clicked = None
+		legal_moves = None
 		while self.running:
 			# Boucle d'évènements
 			for event in pygame.event.get():
@@ -57,16 +58,29 @@ class Board:
 				if event.type == pygame.MOUSEBUTTONDOWN and event.button == pygame.BUTTON_LEFT:
 					self.temp_board = self.board_surface.copy()
 					x, y = event.pos[0] // self.tilesize, event.pos[1] // self.tilesize
+					if last_clicked is not None and legal_moves:  			# Le joueur avait cliqué sur une autre pièce avant
+						if (x, y) in legal_moves:				  			# et essaie de la déplacer
+							current_x, current_y = last_clicked.current_square
+							if (tobetaken := self.board[y][x]) != VIDE:
+								# noinspection PyTypeChecker
+								self.pieces.remove(tobetaken)
+							self.board[current_y][current_x] = VIDE
+							last_clicked.current_square = (x, y)
+							# noinspection PyTypeChecker
+							self.board[y][x] = last_clicked
+						else:
+							last_clicked = legal_moves = None
+
 					# noinspection PyTypeChecker
 					selected_piece: Piece = self.board[y][x]
 					if selected_piece != VIDE:
 						if selected_piece == last_clicked:
 							self.temp_board = self.board_surface.copy()
-							last_clicked = None
+							last_clicked = legal_moves = None
 							continue
-						squares = selected_piece.generate_all_moves(self.board)
-						if squares:
-							self.color_squares(squares)
+						legal_moves = selected_piece.generate_all_moves(self.board)
+						if legal_moves:
+							self.color_squares(legal_moves)
 						last_clicked = selected_piece
 
 			# Affichage

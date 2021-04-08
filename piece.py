@@ -51,6 +51,7 @@ class Piece(pygame.sprite.Sprite):
 		return f"{self.piece_name} at {self.current_square}"
 
 	def generate_all_moves(self, board) -> list[tuple[int, int]]:
+		# A override par les subclass
 		pass
 
 

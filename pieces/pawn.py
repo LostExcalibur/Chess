@@ -14,6 +14,8 @@ class Pawn(piece.Piece):
         x, y = self.current_square
         if self.color == piece.BLANC:
             if y > 0:
+                if y == 6 and board[y - 2][x] == piece.VIDE:  # Premier déplacement
+                    moves.append((x, y - 2))
                 if board[y - 1][x] == piece.VIDE:
                     moves.append((x, y - 1))
                 if x < 7 and board[y - 1][x + 1] != piece.VIDE:
@@ -24,6 +26,8 @@ class Pawn(piece.Piece):
                         moves.append((x - 1, y - 1))
         elif self.color == piece.NOIR:
             if y < 7:
+                if y == 1 and board[y + 2][x] == piece.VIDE:  # Premier déplacement
+                    moves.append((x, y + 2))
                 if board[y + 1][x] == piece.VIDE:
                     moves.append((x, y + 1))
                 if x < 7 and board[y + 1][x + 1] != piece.VIDE:
