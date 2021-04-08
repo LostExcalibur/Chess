@@ -1,4 +1,5 @@
 import pygame.transform
+from easygui import choicebox
 
 from piece import *
 
@@ -58,21 +59,33 @@ class Board:
 				if event.type == pygame.MOUSEBUTTONDOWN and event.button == pygame.BUTTON_LEFT:
 					self.temp_board = self.board_surface.copy()
 					x, y = event.pos[0] // self.tilesize, event.pos[1] // self.tilesize
+					x: int
+					y: int
 					if last_clicked is not None and legal_moves:  			# Le joueur avait cliqué sur une autre pièce avant
 						if (x, y) in legal_moves:				  			# et essaie de la déplacer
 							current_x, current_y = last_clicked.current_square
 							if (tobetaken := self.board[y][x]) != VIDE:
-								# noinspection PyTypeChecker
 								self.pieces.remove(tobetaken)
 							self.board[current_y][current_x] = VIDE
 							last_clicked.current_square = (x, y)
-							# noinspection PyTypeChecker
 							self.board[y][x] = last_clicked
+
+							# Promotion de pion :
+							if type(last_clicked) == Pawn:
+								if (last_clicked.color == BLANC and y == 0) or (last_clicked.color == NOIR and y == 7):
+									new_piece = choicebox("What do you want to promote to ?", choices=["Queen", "Rook", "Bishop", "Knight"])
+									if new_piece is None:  # Le joueur a cliqué "Cancel", donc par défaut on fait une dame
+										promoted = Queen(last_clicked.color, (x, y), self.tilesize)
+									else:
+										promoted = Piece.new_piece(last_clicked.color, PIECES[new_piece], (x, y), self.tilesize)
+									self.pieces.remove(last_clicked)
+									self.pieces.append(promoted)
+									self.board[y][x] = promoted
+
 						else:
 							if (x, y) != last_clicked.current_square:
 								last_clicked = legal_moves = None
 
-					# noinspection PyTypeChecker
 					selected_piece: Piece = self.board[y][x]
 					if selected_piece != VIDE:
 						if selected_piece == last_clicked:

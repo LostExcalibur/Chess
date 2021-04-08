@@ -9,9 +9,10 @@ class Rook(piece.Piece):
         self.current_square = position
         self.color = color
 
-    def generate_all_moves(self, board) -> list[tuple[int, int]]:
+    @staticmethod
+    def generate_moves_for_piece(color: int, position: tuple[int, int], board) -> list[tuple[int, int]]:
         moves = []
-        x, y = self.current_square
+        x, y = position
         droite = 8 - x
         gauche = x + 1
         haut = y + 1
@@ -20,7 +21,7 @@ class Rook(piece.Piece):
             if board[y][x + i] == piece.VIDE:
                 moves.append((x + i, y))
             elif board[y][x + i] != piece.VIDE:
-                if board[y][x + i].color != self.color:
+                if board[y][x + i].color != color:
                     moves.append((x + i, y))
                 break
 
@@ -28,7 +29,7 @@ class Rook(piece.Piece):
             if board[y][x - i] == piece.VIDE:
                 moves.append((x - i, y))
             elif board[y][x - i] != piece.VIDE:
-                if board[y][x - i].color != self.color:
+                if board[y][x - i].color != color:
                     moves.append((x - i, y))
                 break
 
@@ -36,7 +37,7 @@ class Rook(piece.Piece):
             if board[y - i][x] == piece.VIDE:
                 moves.append((x, y - i))
             elif board[y - i][x] != piece.VIDE:
-                if board[y - i][x].color != self.color:
+                if board[y - i][x].color != color:
                     moves.append((x, y - i))
                 break
 
@@ -44,10 +45,13 @@ class Rook(piece.Piece):
             if board[y + i][x] == piece.VIDE:
                 moves.append((x, y + i))
             elif board[y + i][x] != piece.VIDE:
-                if board[y + i][x].color != self.color:
+                if board[y + i][x].color != color:
                     moves.append((x, y + i))
                 break
         return moves
+
+    def generate_all_moves(self, board) -> list[tuple[int, int]]:
+        return self.generate_moves_for_piece(self.color, self.current_square, board)
 
     def __repr__(self):
         return "Black " * (self.color == 1) + "White " * (self.color == 0) + super(Rook, self).__repr__()

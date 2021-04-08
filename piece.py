@@ -13,11 +13,17 @@ VIDE = 0
 
 PIECES = {
 		"P": PION,
+		"Pawn": PION,
 		"N": CAVALIER,
+		"Knight": CAVALIER,
 		"B": FOU,
+		"Bishop": FOU,
 		"R": TOUR,
+		"Rook": TOUR,
 		"Q": REINE,
-		"K": ROI
+		"Queen": REINE,
+		"K": ROI,
+		"King": ROI
 }
 
 
@@ -52,6 +58,10 @@ class Piece(pygame.sprite.Sprite):
 
 	def generate_all_moves(self, board) -> list[tuple[int, int]]:
 		# A override par les subclass
+		pass
+
+	@staticmethod
+	def generate_moves_for_piece(color: int, position: tuple[int, int], board) -> list[tuple[int, int]]:
 		pass
 
 
