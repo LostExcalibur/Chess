@@ -16,7 +16,7 @@ class Board:
 		self.size = (width, height)
 		self.width = width
 		self.height = height
-		self.screen = pygame.display.set_mode(self.size, pygame.RESIZABLE)
+		self.screen = pygame.display.set_mode(self.size)
 		self.tilesize = int(min(width, height) / 8)
 		self.board_surface = self.build_board()
 		self.temp_board = self.board_surface.copy()
@@ -69,7 +69,8 @@ class Board:
 							# noinspection PyTypeChecker
 							self.board[y][x] = last_clicked
 						else:
-							last_clicked = legal_moves = None
+							if (x, y) != last_clicked.current_square:
+								last_clicked = legal_moves = None
 
 					# noinspection PyTypeChecker
 					selected_piece: Piece = self.board[y][x]
