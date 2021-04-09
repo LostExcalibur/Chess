@@ -10,14 +10,14 @@ class Pawn(piece.Piece):
         self.color = color
 
     @staticmethod
-    def generate_moves_for_piece(color: int, position: tuple[int, int], board) -> list[tuple[int, int]]:
+    def generate_moves_for_piece(color: int, position: tuple[int, int], board, only_captures: bool = False) -> list[tuple[int, int]]:
         moves = []
         x, y = position
         if color == piece.BLANC:
             if y > 0:
-                if y == 6 and board[y - 2][x] == piece.VIDE:  # Premier déplacement
+                if y == 6 and board[y - 2][x] == piece.VIDE and not only_captures:  # Premier déplacement
                     moves.append((x, y - 2))
-                if board[y - 1][x] == piece.VIDE:
+                if board[y - 1][x] == piece.VIDE and not only_captures:
                     moves.append((x, y - 1))
                 if x < 7 and board[y - 1][x + 1] != piece.VIDE:
                     if board[y - 1][x + 1].color != color:
@@ -27,9 +27,9 @@ class Pawn(piece.Piece):
                         moves.append((x - 1, y - 1))
         elif color == piece.NOIR:
             if y < 7:
-                if y == 1 and board[y + 2][x] == piece.VIDE:  # Premier déplacement
+                if y == 1 and board[y + 2][x] == piece.VIDE and not only_captures:  # Premier déplacement
                     moves.append((x, y + 2))
-                if board[y + 1][x] == piece.VIDE:
+                if board[y + 1][x] == piece.VIDE and not only_captures:
                     moves.append((x, y + 1))
                 if x < 7 and board[y + 1][x + 1] != piece.VIDE:
                     if board[y + 1][x + 1].color != color:

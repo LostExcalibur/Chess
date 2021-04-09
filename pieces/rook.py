@@ -10,7 +10,7 @@ class Rook(piece.Piece):
         self.color = color
 
     @staticmethod
-    def generate_moves_for_piece(color: int, position: tuple[int, int], board) -> list[tuple[int, int]]:
+    def generate_moves_for_piece(color: int, position: tuple[int, int], board, only_captures: bool = False) -> list[tuple[int, int]]:
         moves = []
         x, y = position
         droite = 8 - x
@@ -19,32 +19,36 @@ class Rook(piece.Piece):
         bas = 8 - y
         for i in range(1, droite):
             if board[y][x + i] == piece.VIDE:
-                moves.append((x + i, y))
-            elif board[y][x + i] != piece.VIDE:
+                if not only_captures:
+                    moves.append((x + i, y))
+            else:
                 if board[y][x + i].color != color:
                     moves.append((x + i, y))
                 break
 
         for i in range(1, gauche):
             if board[y][x - i] == piece.VIDE:
-                moves.append((x - i, y))
-            elif board[y][x - i] != piece.VIDE:
+                if not only_captures:
+                    moves.append((x - i, y))
+            else:
                 if board[y][x - i].color != color:
                     moves.append((x - i, y))
                 break
 
         for i in range(1, haut):
             if board[y - i][x] == piece.VIDE:
-                moves.append((x, y - i))
-            elif board[y - i][x] != piece.VIDE:
+                if not only_captures:
+                    moves.append((x, y - i))
+            else:
                 if board[y - i][x].color != color:
                     moves.append((x, y - i))
                 break
 
         for i in range(1, bas):
             if board[y + i][x] == piece.VIDE:
-                moves.append((x, y + i))
-            elif board[y + i][x] != piece.VIDE:
+                if not only_captures:
+                    moves.append((x, y + i))
+            else:
                 if board[y + i][x].color != color:
                     moves.append((x, y + i))
                 break

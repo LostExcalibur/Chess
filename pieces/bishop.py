@@ -10,7 +10,7 @@ class Bishop(piece.Piece):
         self.color = color
 
     @staticmethod
-    def generate_moves_for_piece(color: int, position: tuple[int, int], board) -> list[tuple[int, int]]:
+    def generate_moves_for_piece(color: int, position: tuple[int, int], board, only_captures: bool = False) -> list[tuple[int, int]]:
         moves = []
         x, y = position
         droite = 8 - x
@@ -20,32 +20,36 @@ class Bishop(piece.Piece):
 
         for i in range(1, min(droite, haut)):
             if board[y - i][x + i] == piece.VIDE:
-                moves.append((x + i, y - i))
-            elif board[y - i][x + i] != piece.VIDE:
+                if not only_captures:
+                    moves.append((x + i, y - i))
+            else:
                 if board[y - i][x + i].color != color:
                     moves.append((x + i, y - i))
                 break
 
         for i in range(1, min(haut, gauche)):
             if board[y - i][x - i] == piece.VIDE:
-                moves.append((x - i, y - i))
-            elif board[y - i][x - i] != piece.VIDE:
+                if not only_captures:
+                    moves.append((x - i, y - i))
+            else:
                 if board[y - i][x - i].color != color:
                     moves.append((x - i, y - i))
                 break
 
         for i in range(1, min(gauche, bas)):
             if board[y + i][x - i] == piece.VIDE:
-                moves.append((x - i, y + i))
-            elif board[y + i][x - i] != piece.VIDE:
+                if not only_captures:
+                    moves.append((x - i, y + i))
+            else:
                 if board[y + i][x - i].color != color:
                     moves.append((x - i, y + i))
                 break
 
         for i in range(1, min(bas, droite)):
             if board[y + i][x + i] == piece.VIDE:
-                moves.append((x + i, y + i))
-            elif board[y + i][x + i] != piece.VIDE:
+                if not only_captures:
+                    moves.append((x + i, y + i))
+            else:
                 if board[y + i][x + i].color != color:
                     moves.append((x + i, y + i))
                 break

@@ -12,9 +12,9 @@ class Queen(piece.Piece):
         self.color = color
 
     @staticmethod
-    def generate_moves_for_piece(color: int, position: tuple[int, int], board) -> list[tuple[int, int]]:
-        moves = Rook.generate_moves_for_piece(color, position, board)
-        moves.extend(Bishop.generate_moves_for_piece(color, position, board))
+    def generate_moves_for_piece(color: int, position: tuple[int, int], board, only_captures: bool = False) -> list[tuple[int, int]]:
+        moves = Rook.generate_moves_for_piece(color, position, board, only_captures)
+        moves.extend(Bishop.generate_moves_for_piece(color, position, board, only_captures))
         return moves
 
     def generate_all_moves(self, board) -> list[tuple[int, int]]:
