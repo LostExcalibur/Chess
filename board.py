@@ -40,7 +40,7 @@ class Board:
         self.testing_FEN = "r1bqkbnr/pppp1pp1/2n4p/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"
         self.testing_FEN2 = "rnbqkbn1/pppPppp1/5p2/7r/4R3/6P1/PPPP1PP1/RNBQKBN1 w Qq - 0 1"
         self.pieces, self.gamestate = \
-            self.parse_FEN("rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3")
+            self.parse_FEN(self.beginning_FEN)
 
     def build_board(self):
         board = pygame.Surface((self.tilesize * 8, self.tilesize * 8))
@@ -55,6 +55,8 @@ class Board:
 
     def run(self):
         pygame.display.set_caption(self.caption)
+        icon = pygame.image.load(path.join("resources", "chess.jpg"))
+        pygame.display.set_icon(pygame.transform.scale(icon, (32, 32)))
         last_clicked = None
         legal_moves = None
         while self.running:
@@ -62,6 +64,9 @@ class Board:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_q:
+                        self.print_board()
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == pygame.BUTTON_LEFT:
                     self.temp_board = self.board_surface.copy()
                     x, y = event.pos[0] // self.tilesize, event.pos[1] // self.tilesize
@@ -77,6 +82,7 @@ class Board:
 
                             if tobetaken != VIDE:
                                 self.pieces.remove(tobetaken)
+                                (self.black_pieces if tobetaken.color == NOIR else self.white_pieces).remove(tobetaken)
                             self.board[y][x] = last_clicked
                             last_clicked.current_square = (x, y)
                             self.board[current_y][current_x] = VIDE
@@ -91,14 +97,15 @@ class Board:
                             # - On détecte les échecs :
                             if self.gamestate >> 6:
                                 # Les noirs vont jouer, donc on vérifie que les blancs ont gagné ou pas au tour qu'ils viennent de jouer
-                                if self.is_in_check(self.black_king.current_square, NOIR):
+                                if self.is_in_check(self.black_king.current_square, NOIR, self.white_pieces):
                                     if self.is_checkmate(NOIR):
                                         self.running = False
                                         print("Les blancs gagnent par échec et mat")
                                     else:
                                         self.gamestate |= 1 << 5
                             else:
-                                if self.is_in_check(self.white_king.current_square, BLANC):
+                                if self.is_in_check(self.white_king.current_square, BLANC, self.black_pieces):
+                                    self.color_squares([self.white_king.current_square])
                                     if self.is_checkmate(BLANC):
                                         self.running = False
                                         print("Les noirs gagnent par échec et mat")
@@ -124,6 +131,7 @@ class Board:
                                         self.black_pieces.remove(last_clicked)
                                         self.black_pieces.append(promoted)
                                     self.board[y][x] = promoted
+
                             last_clicked = None
                             legal_moves = None
                             continue
@@ -139,14 +147,15 @@ class Board:
                             self.temp_board = self.board_surface.copy()
                             last_clicked = legal_moves = None
                             continue
-                        if type(selected_piece) == Pawn:
+                        if type(selected_piece) == Pawn and self.en_passant_square:
                             selected_piece: Pawn
                             selected_piece.en_passant_target = self.en_passant_square
                         pseudolegal_moves = selected_piece.generate_all_moves(self.board)
                         if type(selected_piece) == King:
                             # On enleve les cases où le roi est en échec
+                            ennemy_pieces = self.white_pieces.copy() if selected_piece.color == NOIR else self.black_pieces.copy()
                             legal_moves = list(
-                                filter(lambda position: (not self.is_in_check(position, selected_piece.color)),
+                                filter(lambda position: (not self.is_in_check(position, selected_piece.color, ennemy_pieces)),
                                        pseudolegal_moves))
                         else:
                             legal_moves = self.generate_legal_moves(selected_piece, pseudolegal_moves)
@@ -155,6 +164,10 @@ class Board:
                         last_clicked = selected_piece
 
             # Affichage
+            if self.gamestate & (1 << 5):
+                self.color_squares([self.black_king.current_square])
+            elif self.gamestate & (1 << 4):
+                self.color_squares([self.white_king.current_square])
             self.screen.blit(self.temp_board, self.temp_board.get_rect())
             for piece in self.pieces:
                 self.screen.blit(piece.image,
@@ -242,49 +255,59 @@ class Board:
             pygame.draw.rect(self.temp_board, RED,
                              pygame.Rect(x * self.tilesize, y * self.tilesize, self.tilesize, self.tilesize))
 
-    def is_in_check(self, position: tuple[int, int], color: int) -> bool:
+    def is_in_check(self, position: tuple[int, int], color: int, ennemy_pieces) -> bool:
         x, y = position
         current = self.board[y][x]
         self.board[y][x] = Potential(color, position)
-        pieces = self.white_pieces.copy() if color == NOIR else self.black_pieces.copy()
-        if current in pieces:
-            pieces.remove(current)
+        if current in ennemy_pieces:
+            ennemy_pieces.remove(current)
         in_check = []
-        for piece in pieces:
+        for piece in ennemy_pieces:
+            if isinstance(piece, King): continue
             in_check.extend(piece.generate_moves_for_piece(piece.color, piece.current_square, self.board, True))
         self.board[y][x] = current
-        pieces.append(current)
+        if current:  # Si current == piece.VIDE (0), on le rajoute pas
+            ennemy_pieces.append(current)
         return position in in_check
 
     def is_checkmate(self, color: int) -> bool:
         # On suppose que le roi est déja en échec
         king = self.black_king if color == NOIR else self.white_king
+        ennemy_pieces = self.white_pieces.copy() if color == NOIR else self.black_pieces.copy()
         king_moves = list(
-                filter(lambda position: (not self.is_in_check(position, color)), king.generate_all_moves(self.board)))
+                filter(lambda position: (not self.is_in_check(position, color, ennemy_pieces)), king.generate_all_moves(self.board)))
         if king_moves:
             return False
+        # Le roi peut pas bouger, le seul moyen de pas etre en échec est de bouger une pièce
         pieces = self.white_pieces if color == BLANC else self.black_pieces
         for piece in pieces:
+            if isinstance(piece, King):
+                continue
+            # noinspection PyTypeChecker
             if self.generate_legal_moves(piece, piece.generate_all_moves(self.board)):
                 return False
         return True
 
-    def generate_legal_moves(self, piece: Piece, pseudolegal_moves: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    def generate_legal_moves(self, piece, pseudolegal_moves: list[tuple[int, int]]) -> list[tuple[int, int]]:
         legal = []
         king = self.black_king if piece.color == NOIR else self.white_king
-        pieces = self.white_pieces.copy() if piece.color == NOIR else self.black_pieces.copy()
+        ennemy_pieces = self.white_pieces.copy() if piece.color == NOIR else self.black_pieces.copy()
         self.board[piece.current_square[1]][piece.current_square[0]] = VIDE
+
         for position in pseudolegal_moves:
-            x, y = position
-            x: int
-            y: int
+            (x, y) = position
             current = self.board[y][x]
-            self.board[y][x] = Potential(piece.color, position)
-            if current in pieces:
-                pieces.remove(current)
-            if not self.is_in_check(king.current_square, piece.color):
+            self.board[y][x] = type(piece)(piece.color, position, self.tilesize)
+            if current in ennemy_pieces:
+                ennemy_pieces.remove(current)
+            if not self.is_in_check(king.current_square, piece.color, ennemy_pieces):
                 legal.append(position)
             self.board[y][x] = current
-            pieces.append(current)
+            if current:  # Si current == piece.VIDE (0), on le rajoute pas
+                ennemy_pieces.append(current)
         self.board[piece.current_square[1]][piece.current_square[0]] = piece
         return legal
+
+    def print_board(self):
+        for line in self.board:
+            print(line)

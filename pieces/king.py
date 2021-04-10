@@ -30,7 +30,6 @@ class King(Piece):
                         moves.append((x + i, y + j))
                 elif board[y + j][x + i].color != color:
                     moves.append((x + i, y + j))
-
         return moves
 
     def __repr__(self):
