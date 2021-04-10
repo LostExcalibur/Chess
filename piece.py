@@ -1,6 +1,6 @@
-import pygame
 from os import path
 
+import pygame
 
 BLANC = 0
 NOIR = 1

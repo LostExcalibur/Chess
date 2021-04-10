@@ -8,6 +8,7 @@ class Pawn(piece.Piece):
 
         self.current_square = position
         self.color = color
+        self.en_passant_target = None
 
     @staticmethod
     def generate_moves_for_piece(color: int, position: tuple[int, int], board, only_captures: bool = False) -> list[tuple[int, int]]:
@@ -40,7 +41,16 @@ class Pawn(piece.Piece):
         return moves
 
     def generate_all_moves(self, board) -> list[tuple[int, int]]:
-        return self.generate_moves_for_piece(self.color, self.current_square, board)
+        moves = self.generate_moves_for_piece(self.color, self.current_square, board)
+        if Pawn.can_en_passant(self.color, self.current_square, self.en_passant_target):
+            moves.append(self.en_passant_target)
+        return moves
+
+    @staticmethod
+    def can_en_passant(color: int, position: tuple[int, int], en_passant_square: tuple[int, int]):
+        x, y = position
+        return (color == piece.BLANC and en_passant_square in [(x + 1, y - 1), (x - 1, y - 1)]) or \
+               (color == piece.NOIR and en_passant_square in [(x + 1, y + 1), (x - 1, y + 1)])
 
     def __repr__(self):
         return "Black " * (self.color == 1) + "White " * (self.color == 0) + super(Pawn, self).__repr__()

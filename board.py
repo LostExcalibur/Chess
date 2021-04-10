@@ -25,8 +25,9 @@ class Board:
         self.temp_board = self.board_surface.copy()
         self.running = True
         self.pieces: list[Piece] = []
-        self.white_pieces = []
-        self.black_pieces = []
+        self.white_pieces: list[Piece] = []
+        self.black_pieces: list[Piece] = []
+        self.en_passant_square = None
         self.board = [[VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
                       [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
                       [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
@@ -39,7 +40,7 @@ class Board:
         self.testing_FEN = "r1bqkbnr/pppp1pp1/2n4p/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"
         self.testing_FEN2 = "rnbqkbn1/pppPppp1/5p2/7r/4R3/6P1/PPPP1PP1/RNBQKBN1 w Qq - 0 1"
         self.pieces, self.gamestate = \
-            self.parse_FEN(self.beginning_FEN)
+            self.parse_FEN("rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3")
 
     def build_board(self):
         board = pygame.Surface((self.tilesize * 8, self.tilesize * 8))
@@ -69,17 +70,27 @@ class Board:
                     if last_clicked is not None and legal_moves:  # Le joueur avait cliqué sur une autre pièce avant
                         if (x, y) in legal_moves:  # et essaie de la déplacer
                             current_x, current_y = last_clicked.current_square
-                            if (tobetaken := self.board[y][x]) != VIDE:
+                            tobetaken = self.board[y][x]
+                            # On va prendre en-passant
+                            if (x, y) == self.en_passant_square and type(last_clicked) == Pawn:
+                                tobetaken = self.board[y - 1][x] if (self.gamestate >> 6) else self.board[y + 1][x]
+
+                            if tobetaken != VIDE:
                                 self.pieces.remove(tobetaken)
                             self.board[y][x] = last_clicked
                             last_clicked.current_square = (x, y)
                             self.board[current_y][current_x] = VIDE
+
+                            self.en_passant_square = None
+                            if type(last_clicked) == Pawn and (y == current_y + 2 or y == current_y - 2):
+                                self.en_passant_square = (x, y - 1) if last_clicked.color == NOIR else (x, y + 1)
 
                             # On met à jour l'état du jeu :
                             # - On passe au joueur suivant
                             self.gamestate ^= (1 << 6)
                             # - On détecte les échecs :
                             if self.gamestate >> 6:
+                                # Les noirs vont jouer, donc on vérifie que les blancs ont gagné ou pas au tour qu'ils viennent de jouer
                                 if self.is_in_check(self.black_king.current_square, NOIR):
                                     if self.is_checkmate(NOIR):
                                         self.running = False
@@ -128,6 +139,9 @@ class Board:
                             self.temp_board = self.board_surface.copy()
                             last_clicked = legal_moves = None
                             continue
+                        if type(selected_piece) == Pawn:
+                            selected_piece: Pawn
+                            selected_piece.en_passant_target = self.en_passant_square
                         pseudolegal_moves = selected_piece.generate_all_moves(self.board)
                         if type(selected_piece) == King:
                             # On enleve les cases où le roi est en échec
@@ -159,6 +173,7 @@ class Board:
         split = fen.split(" ")
         lines = split[0].split("/")
 
+        # Construction des pièces
         y = 0
         while y < 8:  # Vertical
             x = 0
@@ -207,6 +222,18 @@ class Board:
                 gamestate |= 0b0000100
 
         # Le reste c'est en passant et le nombre de coup, pour l'instant ça m'intéresse pas
+        # Mtn ça m'intéresse
+        # En passant :
+        if split[3] != '-':
+            i, j = 0, 0
+            sp = list(split[3])  # On sépare caractère par caractère
+            for char in sp:
+                char: str
+                if char.isnumeric():  # C'est la ligne, donc y
+                    j = 8 - int(char)
+                else:  # Lettre donc colonne
+                    i = ord(char) - ord('a')
+            self.en_passant_square = (i, j)
 
         return pieces, gamestate
 
