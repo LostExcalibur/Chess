@@ -5,9 +5,8 @@ from easygui import choicebox
 
 from piece import *
 
-BLACK = pygame.Color(0, 0, 0)
+
 BROWN = pygame.Color(181, 136, 99)
-WHITE = pygame.Color(255, 255, 255)
 LAQUE = pygame.Color(240, 217, 181)
 RED = pygame.Color(255, 0, 0)
 
@@ -42,7 +41,13 @@ class Board:
         self.pieces, self.gamestate = \
             self.parse_FEN(self.beginning_FEN)
 
-    def build_board(self):
+    def build_board(self) -> pygame.Surface:
+        """
+        Construit la surface qui contient les sprites des cases, que l'on stocke dans une variable
+        plutôt que de la générer à chaque frame, ce qui serait vraiment pas efficace
+
+        :return: La surface de l'échiquier
+        """
         board = pygame.Surface((self.tilesize * 8, self.tilesize * 8))
         board.fill(BROWN)
         for x in range(8):
@@ -50,10 +55,14 @@ class Board:
                 if (x + y) % 2:
                     pygame.draw.rect(board, LAQUE, pygame.Rect(x * self.tilesize, y * self.tilesize,
                                                                self.tilesize, self.tilesize))
+        # Il faut la retourner selon les x, car pygame a son axe vertical (y) vers le bas
         board = pygame.transform.flip(board, True, False)
         return board
 
-    def run(self):
+    def run(self) -> None:
+        """
+        La boucle principale du plateau.
+        """
         pygame.display.set_caption(self.caption)
         icon = pygame.image.load(path.join("resources", "chess.jpg"))
         pygame.display.set_icon(pygame.transform.scale(icon, (32, 32)))
@@ -147,11 +156,11 @@ class Board:
                             self.temp_board = self.board_surface.copy()
                             last_clicked = legal_moves = None
                             continue
-                        if type(selected_piece) == Pawn and self.en_passant_square:
+                        if isinstance(selected_piece, Pawn) and self.en_passant_square:
                             selected_piece: Pawn
                             selected_piece.en_passant_target = self.en_passant_square
                         pseudolegal_moves = selected_piece.generate_all_moves(self.board)
-                        if type(selected_piece) == King:
+                        if isinstance(selected_piece, King):
                             # On enleve les cases où le roi est en échec
                             ennemy_pieces = self.white_pieces.copy() if selected_piece.color == NOIR else self.black_pieces.copy()
                             legal_moves = list(
@@ -176,6 +185,12 @@ class Board:
             pygame.display.update()
 
     def parse_FEN(self, fen: str) -> tuple[list[Piece], int]:
+        """
+        Construit les pièces comme décrit dans le FEN passé, et l'état actuel de la partie (roque, en-passant, nombre de coups)
+
+        :param fen: La position sous forme de FEN
+        :return: Le tuple contenant la liste des pièces et l'état de la partie
+        """
         pieces = []
         # De gauche à droite :
         # A qui de jouer : 1 noirs, 0 blancs
@@ -183,6 +198,8 @@ class Board:
         # Roque coté reine puis roi, noirs puis blancs
         gamestate = 0b0001111
 
+        # Un FEN a la structure suivante :
+        # pieces/pieces/pieces/pieces prochain_joueur qui_peut_roquer_et_où case_pour_enpassant halfmove move_number
         split = fen.split(" ")
         lines = split[0].split("/")
 
@@ -196,16 +213,22 @@ class Board:
                 continue
             for char in line:  # Horizontal
                 if char.isnumeric():
+                    # On doit sauter ce nombre de cases horizontalement
                     x += int(char)
                     continue
+                # Si le caractère de la pièce est en minuscule, c'est une pièce noire, blache sinon
+                # Et on construit la pièce correspondante
                 piece = Piece.new_piece(int(char.islower()), PIECES[char.upper()], (x, y), self.tilesize)
+                # On stocke les rois noirs et blancs, c'est pratique de les avoir dans des variables
                 if type(piece) == King:
                     if piece.color == NOIR:
                         self.black_king = piece
                     else:
                         self.white_king = piece
+                # On place la pièce sur l'échiquier
                 self.board[y][x] = piece
                 pieces.append(piece)
+                # On l'ajoute également à la liste des pièces de même couleur
                 if char.islower():
                     self.black_pieces.append(piece)
                 else:
@@ -245,9 +268,11 @@ class Board:
                 if char.isnumeric():  # C'est la ligne, donc y
                     j = 8 - int(char)
                 else:  # Lettre donc colonne
+                    # Attention, les y sont vers le bas dans pygame !
                     i = ord(char) - ord('a')
             self.en_passant_square = (i, j)
 
+        # Reste le nombre de coups à traiter
         return pieces, gamestate
 
     def color_squares(self, squares):
@@ -256,31 +281,57 @@ class Board:
                              pygame.Rect(x * self.tilesize, y * self.tilesize, self.tilesize, self.tilesize))
 
     def is_in_check(self, position: tuple[int, int], color: int, ennemy_pieces) -> bool:
+        """
+        Vérifie si une case particulière de l'échiquier est en prise par l'autre couleur.
+        La case peut être déjà occupée par une pièce de la couleur attaquante, dans le cas d'une capture.
+
+        :param position: La case de l'échiquier à vérifier
+        :param color: La couleur de la pièce à la position
+        :param ennemy_pieces: La liste des pièces ennemies
+        :return:
+        """
         x, y = position
+        # On sauvegarde l'éventuelle pièce ennemie à la position passée
         current = self.board[y][x]
+        # On place une pièce potentielle de la couleur attaquée à la position
         self.board[y][x] = Potential(color, position)
         if current in ennemy_pieces:
+            # On retire la pièce sauvegardée des attaquants, pour ne pas fausser l'évaluation dans le cas d'une prise
             ennemy_pieces.remove(current)
         in_check = []
         for piece in ennemy_pieces:
+            # Si on a trouvé avant de processer toutes les pièces ennemies, pas besoin de continuer
+            if position in in_check:
+                return True
+            # Le roi ne peut pas mettre en échec l'autre roi, pas besoin de vérifier.
             if isinstance(piece, King): continue
             in_check.extend(piece.generate_moves_for_piece(piece.color, piece.current_square, self.board, True))
+        # On replace la pièce initialement à la position
         self.board[y][x] = current
         if current:  # Si current == piece.VIDE (0), on le rajoute pas
             ennemy_pieces.append(current)
         return position in in_check
 
     def is_checkmate(self, color: int) -> bool:
+        """
+        Vérifie si le roi de la couleur fournie est actuellement en échec et mat.
+
+        :param color: La couleur attaquée
+        :return: Si le roi est en échec et mat
+        """
         # On suppose que le roi est déja en échec
         king = self.black_king if color == NOIR else self.white_king
         ennemy_pieces = self.white_pieces.copy() if color == NOIR else self.black_pieces.copy()
+        # On génère la liste des déplacements possibles du roi, auxquels on enlève ceux qui le mettent en échec.
         king_moves = list(
                 filter(lambda position: (not self.is_in_check(position, color, ennemy_pieces)), king.generate_all_moves(self.board)))
         if king_moves:
+            # Si le roi peut bouger, pas besoin de vérifier plus.
             return False
         # Le roi peut pas bouger, le seul moyen de pas etre en échec est de bouger une pièce
         pieces = self.white_pieces if color == BLANC else self.black_pieces
         for piece in pieces:
+            # On sait déjà que le roi ne peut pas bouger
             if isinstance(piece, King):
                 continue
             # noinspection PyTypeChecker
@@ -289,22 +340,37 @@ class Board:
         return True
 
     def generate_legal_moves(self, piece, pseudolegal_moves: list[tuple[int, int]]) -> list[tuple[int, int]]:
+        """
+        Génère, à partir de la liste des déplacements pseudo-légaux d'une pièce, la liste de ses déplacements légaux.
+        Un déplacement est légal si il ne met ou laisse pas le roi en échec.
+
+        :param piece: La pièce concernée
+        :param pseudolegal_moves: La liste de ses déplacements pseudo-légaux, cad sans tenir compte des échecs/clouages etc
+        :return: La liste (éventuellement vide) des déplacements possible
+        """
         legal = []
         king = self.black_king if piece.color == NOIR else self.white_king
         ennemy_pieces = self.white_pieces.copy() if piece.color == NOIR else self.black_pieces.copy()
+        # On retire la pièce de sa case actuelle, puisqu'elle va se déplacer
         self.board[piece.current_square[1]][piece.current_square[0]] = VIDE
 
         for position in pseudolegal_moves:
             (x, y) = position
+            # On sauvegarde la pièce actuellement sur la case.
             current = self.board[y][x]
-            self.board[y][x] = type(piece)(piece.color, position, self.tilesize)
+            # On y place une pièce temporaire de la couleur de la pièce se déplaçant.
+            self.board[y][x] = Potential(piece.color, position)
             if current in ennemy_pieces:
+                # On retire l'éventuelle pièce prise des pièces ennemies pour ne pas fausser l'évaluation.
                 ennemy_pieces.remove(current)
+            # Si le roi n'est pas en échec après le déplacement, il est légal
             if not self.is_in_check(king.current_square, piece.color, ennemy_pieces):
                 legal.append(position)
+            # On replace la pièce sauvegardée
             self.board[y][x] = current
             if current:  # Si current == piece.VIDE (0), on le rajoute pas
                 ennemy_pieces.append(current)
+        # Enfin, on replace la pièce déplacée
         self.board[piece.current_square[1]][piece.current_square[0]] = piece
         return legal
 

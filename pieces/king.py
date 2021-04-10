@@ -1,4 +1,3 @@
-import piece
 from piece import Piece
 
 
@@ -10,11 +9,11 @@ class King(Piece):
         self.current_square = position
         self.color = color
 
-    def generate_all_moves(self, board) -> list[tuple[int, int]]:
+    def generate_all_moves(self, board: list[list[Piece]]) -> list[tuple[int, int]]:
         return self.generate_moves_for_piece(self.color, self.current_square, board)
 
     @staticmethod
-    def generate_moves_for_piece(color: int, position: tuple[int, int], board, only_captures: bool = False) -> list[tuple[int, int]]:
+    def generate_moves_for_piece(color: int, position: tuple[int, int], board: list[list[Piece]], only_captures: bool = False) -> list[tuple[int, int]]:
         moves = []
         x, y = position
         gauche = - min(1, x)
@@ -25,7 +24,7 @@ class King(Piece):
             for j in range(haut, bas + 1):
                 if i == j == 0:
                     continue
-                if board[y + j][x + i] == piece.VIDE:
+                if board[y + j][x + i] == VIDE:
                     if not only_captures:
                         moves.append((x + i, y + j))
                 elif board[y + j][x + i].color != color:

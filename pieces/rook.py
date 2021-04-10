@@ -1,7 +1,7 @@
-import piece
+from piece import Piece, VIDE
 
 
-class Rook(piece.Piece):
+class Rook(Piece):
     def __init__(self, color: int, position: tuple[int, int], tilesize: int):
         self.name = "b" * (color == 1) + "w" * (color == 0) + "R.png"
         super(Rook, self).__init__(tilesize, self.name, "rook")
@@ -10,7 +10,7 @@ class Rook(piece.Piece):
         self.color = color
 
     @staticmethod
-    def generate_moves_for_piece(color: int, position: tuple[int, int], board, only_captures: bool = False) -> list[tuple[int, int]]:
+    def generate_moves_for_piece(color: int, position: tuple[int, int], board: list[list[Piece]], only_captures: bool = False) -> list[tuple[int, int]]:
         moves = []
         x, y = position
         droite = 8 - x
@@ -18,7 +18,7 @@ class Rook(piece.Piece):
         haut = y + 1
         bas = 8 - y
         for i in range(1, droite):
-            if board[y][x + i] == piece.VIDE:
+            if board[y][x + i] == VIDE:
                 if not only_captures:
                     moves.append((x + i, y))
             else:
@@ -27,7 +27,7 @@ class Rook(piece.Piece):
                 break
 
         for i in range(1, gauche):
-            if board[y][x - i] == piece.VIDE:
+            if board[y][x - i] == VIDE:
                 if not only_captures:
                     moves.append((x - i, y))
             else:
@@ -36,7 +36,7 @@ class Rook(piece.Piece):
                 break
 
         for i in range(1, haut):
-            if board[y - i][x] == piece.VIDE:
+            if board[y - i][x] == VIDE:
                 if not only_captures:
                     moves.append((x, y - i))
             else:
@@ -45,7 +45,7 @@ class Rook(piece.Piece):
                 break
 
         for i in range(1, bas):
-            if board[y + i][x] == piece.VIDE:
+            if board[y + i][x] == VIDE:
                 if not only_captures:
                     moves.append((x, y + i))
             else:
@@ -54,7 +54,7 @@ class Rook(piece.Piece):
                 break
         return moves
 
-    def generate_all_moves(self, board) -> list[tuple[int, int]]:
+    def generate_all_moves(self, board: list[list[Piece]]) -> list[tuple[int, int]]:
         return self.generate_moves_for_piece(self.color, self.current_square, board)
 
     def __repr__(self):

@@ -1,7 +1,7 @@
-import piece
+from piece import Piece, VIDE, BLANC, NOIR
 
 
-class Pawn(piece.Piece):
+class Pawn(Piece):
     def __init__(self, color: int, position: tuple[int, int], tilesize: int):
         self.name = "b" * (color == 1) + "w" * (color == 0) + "P.png"
         super(Pawn, self).__init__(tilesize, self.name, "pawn")
@@ -11,36 +11,36 @@ class Pawn(piece.Piece):
         self.en_passant_target = None
 
     @staticmethod
-    def generate_moves_for_piece(color: int, position: tuple[int, int], board, only_captures: bool = False) -> list[tuple[int, int]]:
+    def generate_moves_for_piece(color: int, position: tuple[int, int], board: list[list[Piece]], only_captures: bool = False) -> list[tuple[int, int]]:
         moves = []
         x, y = position
-        if color == piece.BLANC:
+        if color == BLANC:
             if y > 0:
-                if y == 6 and board[y - 2][x] == piece.VIDE and not only_captures:  # Premier déplacement
+                if y == 6 and board[y - 2][x] == VIDE and not only_captures:  # Premier déplacement
                     moves.append((x, y - 2))
-                if board[y - 1][x] == piece.VIDE and not only_captures:
+                if board[y - 1][x] == VIDE and not only_captures:
                     moves.append((x, y - 1))
-                if x < 7 and board[y - 1][x + 1] != piece.VIDE:
+                if x < 7 and board[y - 1][x + 1] != VIDE:
                     if board[y - 1][x + 1].color != color:
                         moves.append((x + 1, y - 1))
-                if x > 0 and board[y - 1][x - 1] != piece.VIDE:
+                if x > 0 and board[y - 1][x - 1] != VIDE:
                     if board[y - 1][x - 1].color != color:
                         moves.append((x - 1, y - 1))
-        elif color == piece.NOIR:
+        elif color == NOIR:
             if y < 7:
-                if y == 1 and board[y + 2][x] == piece.VIDE and not only_captures:  # Premier déplacement
+                if y == 1 and board[y + 2][x] == VIDE and not only_captures:  # Premier déplacement
                     moves.append((x, y + 2))
-                if board[y + 1][x] == piece.VIDE and not only_captures:
+                if board[y + 1][x] == VIDE and not only_captures:
                     moves.append((x, y + 1))
-                if x < 7 and board[y + 1][x + 1] != piece.VIDE:
+                if x < 7 and board[y + 1][x + 1] != VIDE:
                     if board[y + 1][x + 1].color != color:
                         moves.append((x + 1, y + 1))
-                if x > 0 and board[y + 1][x - 1] != piece.VIDE:
+                if x > 0 and board[y + 1][x - 1] != VIDE:
                     if board[y + 1][x - 1].color != color:
                         moves.append((x - 1, y + 1))
         return moves
 
-    def generate_all_moves(self, board) -> list[tuple[int, int]]:
+    def generate_all_moves(self, board: list[list[Piece]]) -> list[tuple[int, int]]:
         moves = self.generate_moves_for_piece(self.color, self.current_square, board)
         if Pawn.can_en_passant(self.color, self.current_square, self.en_passant_target):
             moves.append(self.en_passant_target)
@@ -49,8 +49,8 @@ class Pawn(piece.Piece):
     @staticmethod
     def can_en_passant(color: int, position: tuple[int, int], en_passant_square: tuple[int, int]):
         x, y = position
-        return (color == piece.BLANC and en_passant_square in [(x + 1, y - 1), (x - 1, y - 1)]) or \
-               (color == piece.NOIR and en_passant_square in [(x + 1, y + 1), (x - 1, y + 1)])
+        return (color == BLANC and en_passant_square in [(x + 1, y - 1), (x - 1, y - 1)]) or \
+               (color == NOIR and en_passant_square in [(x + 1, y + 1), (x - 1, y + 1)])
 
     def __repr__(self):
         return "Black " * (self.color == 1) + "White " * (self.color == 0) + super(Pawn, self).__repr__()
