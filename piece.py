@@ -1,3 +1,5 @@
+# encoding=latin-1
+
 from os import path
 
 import pygame
@@ -67,7 +69,7 @@ class Piece(pygame.sprite.Sprite):
 	def __repr__(self):
 		return f"{self.piece_name} at {self.current_square}"
 
-	def generate_all_moves(self, board: list[list[Piece]]) -> list[tuple[int, int]]:
+	def generate_all_moves(self, board) -> list[tuple[int, int]]:
 		"""
 		Génère la liste des déplacements pseudolégaux pour la pièce.
 		A implémenter dans les sous-classes.
@@ -78,7 +80,7 @@ class Piece(pygame.sprite.Sprite):
 		pass
 
 	@staticmethod
-	def generate_moves_for_piece(color: int, position: tuple[int, int], board: list[list[Piece]], only_captures: bool = False) -> list[tuple[int, int]]:
+	def generate_moves_for_piece(color: int, position: tuple[int, int], board, only_captures: bool = False) -> list[tuple[int, int]]:
 		"""
 		Génère la liste des déplacements pseudolégaux pour une pièce de la couleur et à la position passée.
 		A implémenter dans les sous-classes.

@@ -1,4 +1,4 @@
-from piece import Piece
+from piece import Piece, VIDE
 
 
 class King(Piece):

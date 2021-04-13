@@ -15,29 +15,27 @@ class Pawn(Piece):
         moves = []
         x, y = position
         if color == BLANC:
-            if y > 0:
-                if y == 6 and board[y - 2][x] == VIDE and not only_captures:  # Premier déplacement
+            if board[y - 1][x] == VIDE and not only_captures:
+                moves.append((x, y - 1))
+                if y == 6 and board[y - 2][x] == VIDE and not only_captures: # Premier déplacement
                     moves.append((x, y - 2))
-                if board[y - 1][x] == VIDE and not only_captures:
-                    moves.append((x, y - 1))
-                if x < 7 and board[y - 1][x + 1] != VIDE:
-                    if board[y - 1][x + 1].color != color:
-                        moves.append((x + 1, y - 1))
-                if x > 0 and board[y - 1][x - 1] != VIDE:
-                    if board[y - 1][x - 1].color != color:
-                        moves.append((x - 1, y - 1))
+            if x < 7 and board[y - 1][x + 1] != VIDE:
+                if board[y - 1][x + 1].color != color:
+                    moves.append((x + 1, y - 1))
+            if x > 0 and board[y - 1][x - 1] != VIDE:
+                if board[y - 1][x - 1].color != color:
+                    moves.append((x - 1, y - 1))
         elif color == NOIR:
-            if y < 7:
-                if y == 1 and board[y + 2][x] == VIDE and not only_captures:  # Premier déplacement
+            if board[y + 1][x] == VIDE and not only_captures:
+                moves.append((x, y + 1))
+                if y == 1 and board[y + 2][x] == VIDE and not only_captures: # Premier déplacement
                     moves.append((x, y + 2))
-                if board[y + 1][x] == VIDE and not only_captures:
-                    moves.append((x, y + 1))
-                if x < 7 and board[y + 1][x + 1] != VIDE:
-                    if board[y + 1][x + 1].color != color:
-                        moves.append((x + 1, y + 1))
-                if x > 0 and board[y + 1][x - 1] != VIDE:
-                    if board[y + 1][x - 1].color != color:
-                        moves.append((x - 1, y + 1))
+            if x < 7 and board[y + 1][x + 1] != VIDE:
+                if board[y + 1][x + 1].color != color:
+                    moves.append((x + 1, y + 1))
+            if x > 0 and board[y + 1][x - 1] != VIDE:
+                if board[y + 1][x - 1].color != color:
+                    moves.append((x - 1, y + 1))
         return moves
 
     def generate_all_moves(self, board: list[list[Piece]]) -> list[tuple[int, int]]:

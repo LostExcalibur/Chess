@@ -83,6 +83,7 @@ class Board:
                     y: int
                     if last_clicked is not None and legal_moves:  # Le joueur avait cliqué sur une autre pièce avant
                         if (x, y) in legal_moves:  # et essaie de la déplacer
+                            self.temp_board = self.board_surface.copy()  # On nettoie la surface du plateau
                             current_x, current_y = last_clicked.current_square
                             tobetaken = self.board[y][x]
                             # On va prendre en-passant
@@ -112,6 +113,10 @@ class Board:
                                         print("Les blancs gagnent par échec et mat")
                                     else:
                                         self.gamestate |= 1 << 5
+                                # Les blancs viennent de jouer, donc ils ne sont forcément plus en échec
+                                # sinon il y aurait eu mat au coup précédent
+                                self.gamestate &= 0b1101111
+
                             else:
                                 if self.is_in_check(self.white_king.current_square, BLANC, self.black_pieces):
                                     self.color_squares([self.white_king.current_square])
@@ -120,6 +125,7 @@ class Board:
                                         print("Les noirs gagnent par échec et mat")
                                     else:
                                         self.gamestate |= 1 << 4
+                                self.gamestate &= 0b1011111
 
                             # Promotion de pion :
                             if type(last_clicked) == Pawn:
@@ -302,6 +308,10 @@ class Board:
         for piece in ennemy_pieces:
             # Si on a trouvé avant de processer toutes les pièces ennemies, pas besoin de continuer
             if position in in_check:
+                # On replace ce que l'on a remplacé
+                self.board[y][x] = current
+                if current:  # Si current == piece.VIDE (0), on le rajoute pas
+                    ennemy_pieces.append(current)
                 return True
             # Le roi ne peut pas mettre en échec l'autre roi, pas besoin de vérifier.
             if isinstance(piece, King): continue
