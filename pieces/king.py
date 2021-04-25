@@ -11,6 +11,7 @@ class King(Piece):
 
         self.current_square = position
         self.color = color
+        self.worth = 100
 
     def generate_all_moves(self, board: list[list[Piece]]) -> list[tuple[int, int]]:
         return self.generate_moves_for_piece(self.color, self.current_square, board)

@@ -37,6 +37,7 @@ class Piece(pygame.sprite.Sprite):
 		self.current_square: tuple[int, int] = (-1, -1)
 		self.name = name
 		self.piece_name = piece_name
+		self.worth = 0
 		if name is not None and tilesize is not None and piece_name is not None:
 			self.image = pygame.transform.smoothscale(pygame.image.load(path.join("resources",
 		                                                                      self.name)),

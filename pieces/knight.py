@@ -9,6 +9,7 @@ class Knight(Piece):
 
         self.current_square = position
         self.color = color
+        self.worth = 3
 
     # J'ai évidemment pas trouvé ça tout seul, crédit :
     # https://stackoverflow.com/a/19372692/14606122

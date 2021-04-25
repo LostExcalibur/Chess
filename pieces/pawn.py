@@ -9,6 +9,7 @@ class Pawn(Piece):
         self.current_square = position
         self.color = color
         self.en_passant_target = None
+        self.worth = 1
 
     @staticmethod
     def generate_moves_for_piece(color: int, position: tuple[int, int], board: list[list[Piece]], only_captures: bool = False) -> list[tuple[int, int]]:

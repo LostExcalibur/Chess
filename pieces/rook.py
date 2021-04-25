@@ -8,6 +8,7 @@ class Rook(Piece):
 
         self.current_square = position
         self.color = color
+        self.worth = 5
 
     @staticmethod
     def generate_moves_for_piece(color: int, position: tuple[int, int], board: list[list[Piece]], only_captures: bool = False) -> list[tuple[int, int]]:

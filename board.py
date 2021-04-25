@@ -28,6 +28,8 @@ class Board:
         self.black_pieces: list[Piece] = []
         self.en_passant_square = None
         self.black_king = self.white_king = None
+        self.white_material_count = self.black_material_count = 0
+        self.evaluation = 0
         self.board = [[VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
                       [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
                       [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
@@ -41,8 +43,10 @@ class Board:
         self.testing_FEN2 = "rnbqkbn1/pppPppp1/5p2/7r/4R3/6P1/PPPP1PP1/RNBQKBN1 w Qq - 0 1"
         self.castling_FEN = "rnbqk2r/pppp1ppp/4pn2/2b5/2B5/4PN2/PPPP1PPP/RNBQK2R w KQkq - 0 1"
         self.castling_FEN2 = "r3kbnr/pppqpppp/2n5/3p1b2/3P1B2/2N5/PPPQPPPP/R3KBNR w KQkq - 0 1"
+        self.stalemate_FEN = "k7/8/8/8/5q2/8/8/7K b - - 0 1"
         self.pieces, self.gamestate = \
-            self.parse_FEN(self.castling_FEN2)
+            self.parse_FEN(self.stalemate_FEN)
+        self.calculate_evaluation()
 
     def build_board(self) -> pygame.Surface:
         """
@@ -79,6 +83,10 @@ class Board:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_q:
                         self.print_board()
+                    elif event.key == pygame.K_g:
+                        self.print_gamestate()
+                    elif event.key == pygame.K_ESCAPE:
+                        self.running = False
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == pygame.BUTTON_LEFT:
                     self.temp_board = self.board_surface.copy()
                     x, y = event.pos[0] // self.tilesize, event.pos[1] // self.tilesize
@@ -169,6 +177,9 @@ class Board:
                                         print("Les blancs gagnent par échec et mat")
                                     else:
                                         self.gamestate |= 1 << 5
+                                elif self.is_stalemate(NOIR):
+                                    print("Il y a pat, égalité")
+                                    self.running = False
                                 # Les blancs viennent de jouer, donc ils ne sont forcément plus en échec
                                 # sinon il y aurait eu mat au coup précédent
                                 self.gamestate &= 0b1101111
@@ -180,10 +191,14 @@ class Board:
                                         print("Les noirs gagnent par échec et mat")
                                     else:
                                         self.gamestate |= 1 << 4
+                                elif self.is_stalemate(BLANC):
+                                    print("Il y a pat, égalité")
+                                    self.running = False
                                 self.gamestate &= 0b1011111
 
                             last_clicked = None
                             legal_moves = None
+                            self.calculate_evaluation()
                             # self.print_gamestate()
                             continue
 
@@ -203,22 +218,17 @@ class Board:
                             selected_piece.en_passant_target = self.en_passant_square
                         pseudolegal_moves = selected_piece.generate_all_moves(self.board)
                         if isinstance(selected_piece, King):
-                            # On enleve les cases où le roi est en échec
                             ennemy_pieces = self.white_pieces.copy() if selected_piece.color == NOIR else self.black_pieces.copy()
-                            # On retire le roi de sa case actuelle pour qu'il ne fausse pas l'évaluation des échecs
-                            self.board[y][x] = VIDE
-                            legal_moves = list(
-                                    filter(lambda position: (
-                                        not self.is_in_check(position, selected_piece.color, ennemy_pieces)),
-                                           pseudolegal_moves))
-                            # On remet le roi
-                            self.board[y][x] = selected_piece
+
+                            legal_moves = self.legal_king_moves(selected_piece, ennemy_pieces, pseudolegal_moves)
 
                             # Si le roi peut roquer et qu'il n'est pas en échec
-                            if (selected_piece == self.white_king and (self.gamestate & 0b11) and not (self.gamestate & 0b0010000)) \
-                                    or (selected_piece == self.black_king and ((self.gamestate >> 2) & 0b11) and not (self.gamestate & 0b0100000)):
+                            if (selected_piece == self.white_king and (self.gamestate & 0b11) and not (
+                                    self.gamestate & 0b0010000)) \
+                                    or (selected_piece == self.black_king and ((self.gamestate >> 2) & 0b11) and not (
+                                    self.gamestate & 0b0100000)):
                                 state = ((self.gamestate >> 2) & 0b11) if selected_piece == self.black_king else (
-                                            self.gamestate & 0b11)
+                                        self.gamestate & 0b11)
                                 queenside, kingside = selected_piece.can_castle(selected_piece.current_square,
                                                                                 self.board, state)
                                 kingx, kingy = selected_piece.current_square
@@ -347,7 +357,7 @@ class Board:
             pygame.draw.rect(self.temp_board, RED,
                              pygame.Rect(x * self.tilesize, y * self.tilesize, self.tilesize, self.tilesize))
 
-    def is_in_check(self, position: tuple[int, int], color: int, ennemy_pieces) -> bool:
+    def is_in_check(self, position: tuple[int, int], color: int, ennemy_pieces: list[Piece]) -> bool:
         """
         Vérifie si une case particulière de l'échiquier est en prise par l'autre couleur.
         La case peut être déjà occupée par une pièce de la couleur attaquante, dans le cas d'une capture.
@@ -358,7 +368,7 @@ class Board:
         :return:
         """
         x, y = position
-        # On sauvegarde l'éventuelle pièce ennemie à la position passée
+        # On sauvegarde l'éventuelle pièce ennemie/alliée à la position passée
         current = self.board[y][x]
         # On place une pièce potentielle de la couleur attaquée à la position
         self.board[y][x] = Potential(color, position)
@@ -371,15 +381,14 @@ class Board:
             if position in in_check:
                 # On replace ce que l'on a remplacé
                 self.board[y][x] = current
-                if current:  # Si current == piece.VIDE (0), on le rajoute pas
+                if current and current.color != color:  # Si current == piece.VIDE (0), on le rajoute pas
                     ennemy_pieces.append(current)
                 return True
             # Le roi ne peut pas mettre en échec l'autre roi, pas besoin de vérifier.
-            if isinstance(piece, King): continue
             in_check.extend(piece.generate_moves_for_piece(piece.color, piece.current_square, self.board, True))
         # On replace la pièce initialement à la position
         self.board[y][x] = current
-        if current:  # Si current == piece.VIDE (0), on le rajoute pas
+        if current and current.color != color:  # Si current == piece.VIDE (0), on le rajoute pas
             ennemy_pieces.append(current)
         return position in in_check
 
@@ -394,9 +403,7 @@ class Board:
         king = self.black_king if color == NOIR else self.white_king
         ennemy_pieces = self.white_pieces.copy() if color == NOIR else self.black_pieces.copy()
         # On génère la liste des déplacements possibles du roi, auxquels on enlève ceux qui le mettent en échec.
-        king_moves = list(
-                filter(lambda position: (not self.is_in_check(position, color, ennemy_pieces)),
-                       king.generate_all_moves(self.board)))
+        king_moves = self.legal_king_moves(king, ennemy_pieces, king.generate_all_moves(self.board))
         if king_moves:
             # Si le roi peut bouger, pas besoin de vérifier plus.
             return False
@@ -460,6 +467,7 @@ class Board:
               " coté roi" * ((self.gamestate >> 2) & 1))
         print("Les blancs peuvent roquer :" + " coté dame" * ((self.gamestate >> 1) & 1) +
               " coté roi" * (self.gamestate & 1))
+        print("Evaluation de la position :", self.evaluation)
 
     def move_piece(self, piece: Piece, new_pos: tuple[int, int]) -> None:
         """
@@ -472,3 +480,43 @@ class Board:
         self.board[oldy][oldx] = VIDE
         self.board[newy][newx] = piece
         piece.current_square = (newx, newy)
+
+    def calculate_evaluation(self) -> None:
+        """
+        Calcule l'évaluation de la position en terme de matériel, sans prendre en compte l'activité des pièces
+        """
+        self.white_material_count, self.black_material_count = sum(p.worth for p in self.white_pieces), \
+                                                               sum(p.worth for p in self.black_pieces)
+        self.evaluation = self.white_material_count - self.black_material_count
+
+    def is_stalemate(self, color: int) -> bool:
+        """
+        Vérifie si le joueur donné est pat, c'est-à-dire s'il ne lui reste plus de mouvements légaux sans être en échec.
+
+        :param color: Le joueur concerné
+        :return: Si il y a pat
+        """
+        # On part du principe que le roi n'est pas en échec.
+        # On peut utiliser la même logique que dans la vérification d'échec et mat, mais sans que le roi soit en échec.
+        return self.is_checkmate(color)
+
+    def legal_king_moves(self, king: Piece, ennemy_pieces: list[Piece], pseudolegal_moves: list[tuple[int, int]]) -> list[tuple[int, int]]:
+        """
+        Génère la liste des déplacements légaux du roi (sans compter le roque), en enlevant les déplacements qui le mettraient en échec.
+
+        :param king: Le roi concerné
+        :param ennemy_pieces: La liste des pièces ennemies
+        :param pseudolegal_moves: Les déplacements pseudo-légaux
+        :return: La liste des déplacements légaux du roi
+        """
+        # On retire le roi de sa case actuelle pour qu'il ne fausse pas l'évaluation des échecs
+        x, y = king.current_square
+        self.board[y][x] = VIDE
+        # On enleve les cases où le roi est en échec
+        legal_moves = list(
+                filter(lambda position: (
+                        not self.is_in_check(position, king.color, ennemy_pieces)),
+                       pseudolegal_moves))
+        # On remet le roi
+        self.board[y][x] = king
+        return legal_moves
