@@ -17,7 +17,7 @@ class Pawn(Piece):
         if color == BLANC:
             if board[y - 1][x] == VIDE and not only_captures:
                 moves.append((x, y - 1))
-                if y == 6 and board[y - 2][x] == VIDE and not only_captures: # Premier déplacement
+                if y == 6 and board[y - 2][x] == VIDE and not only_captures:  # Premier déplacement
                     moves.append((x, y - 2))
             if x < 7 and board[y - 1][x + 1] != VIDE:
                 if board[y - 1][x + 1].color != color:

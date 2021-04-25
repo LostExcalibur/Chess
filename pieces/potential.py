@@ -1,7 +1,7 @@
-import piece
+from piece import Piece
 
 
-class Potential(piece.Piece):
+class Potential(Piece):
     def __init__(self, color: int, position: tuple[int, int]):
         super().__init__(None, None, "potential")
         self.color = color

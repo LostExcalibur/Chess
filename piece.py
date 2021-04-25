@@ -101,4 +101,3 @@ from pieces.rook import Rook
 from pieces.bishop import Bishop
 from pieces.knight import Knight
 from pieces.pawn import Pawn
-from pieces.potential import Potential

@@ -4,6 +4,7 @@ import pygame.transform
 from easygui import choicebox
 
 from piece import *
+from pieces.potential import Potential
 
 BROWN = pygame.Color(181, 136, 99)
 LAQUE = pygame.Color(240, 217, 181)
@@ -26,6 +27,7 @@ class Board:
         self.white_pieces: list[Piece] = []
         self.black_pieces: list[Piece] = []
         self.en_passant_square = None
+        self.black_king = self.white_king = None
         self.board = [[VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
                       [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
                       [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
@@ -38,8 +40,9 @@ class Board:
         self.testing_FEN = "r1bqkbnr/pppp1pp1/2n4p/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"
         self.testing_FEN2 = "rnbqkbn1/pppPppp1/5p2/7r/4R3/6P1/PPPP1PP1/RNBQKBN1 w Qq - 0 1"
         self.castling_FEN = "rnbqk2r/pppp1ppp/4pn2/2b5/2B5/4PN2/PPPP1PPP/RNBQK2R w KQkq - 0 1"
+        self.castling_FEN2 = "r3kbnr/pppqpppp/2n5/3p1b2/3P1B2/2N5/PPPQPPPP/R3KBNR w KQkq - 0 1"
         self.pieces, self.gamestate = \
-            self.parse_FEN(self.castling_FEN)
+            self.parse_FEN(self.castling_FEN2)
 
     def build_board(self) -> pygame.Surface:
         """
@@ -134,32 +137,6 @@ class Board:
                             if type(last_clicked) == Pawn and (y == current_y + 2 or y == current_y - 2):
                                 self.en_passant_square = (x, y - 1) if last_clicked.color == NOIR else (x, y + 1)
 
-                            # On met à jour l'état du jeu :
-                            # - On passe au joueur suivant
-                            self.gamestate ^= (1 << 6)
-                            # - On détecte les échecs :
-                            if self.gamestate >> 6:
-                                # Les noirs vont jouer, donc on vérifie que les blancs ont gagné ou pas au tour qu'ils viennent de jouer
-                                if self.is_in_check(self.black_king.current_square, NOIR, self.white_pieces):
-                                    if self.is_checkmate(NOIR):
-                                        self.running = False
-                                        print("Les blancs gagnent par échec et mat")
-                                    else:
-                                        self.gamestate |= 1 << 5
-                                # Les blancs viennent de jouer, donc ils ne sont forcément plus en échec
-                                # sinon il y aurait eu mat au coup précédent
-                                self.gamestate &= 0b1101111
-
-                            else:
-                                if self.is_in_check(self.white_king.current_square, BLANC, self.black_pieces):
-                                    self.color_squares([self.white_king.current_square])
-                                    if self.is_checkmate(BLANC):
-                                        self.running = False
-                                        print("Les noirs gagnent par échec et mat")
-                                    else:
-                                        self.gamestate |= 1 << 4
-                                self.gamestate &= 0b1011111
-
                             # Promotion de pion :
                             if type(last_clicked) == Pawn:
                                 if (last_clicked.color == BLANC and y == 0) or (last_clicked.color == NOIR and y == 7):
@@ -179,6 +156,31 @@ class Board:
                                         self.black_pieces.remove(last_clicked)
                                         self.black_pieces.append(promoted)
                                     self.board[y][x] = promoted
+
+                            # On met à jour l'état du jeu :
+                            # - On passe au joueur suivant
+                            self.gamestate ^= (1 << 6)
+                            # - On détecte les échecs :
+                            if self.gamestate >> 6:
+                                # Les noirs vont jouer, donc on vérifie que les blancs ont gagné ou pas au tour qu'ils viennent de jouer
+                                if self.is_in_check(self.black_king.current_square, NOIR, self.white_pieces):
+                                    if self.is_checkmate(NOIR):
+                                        self.running = False
+                                        print("Les blancs gagnent par échec et mat")
+                                    else:
+                                        self.gamestate |= 1 << 5
+                                # Les blancs viennent de jouer, donc ils ne sont forcément plus en échec
+                                # sinon il y aurait eu mat au coup précédent
+                                self.gamestate &= 0b1101111
+
+                            else:
+                                if self.is_in_check(self.white_king.current_square, BLANC, self.black_pieces):
+                                    if self.is_checkmate(BLANC):
+                                        self.running = False
+                                        print("Les noirs gagnent par échec et mat")
+                                    else:
+                                        self.gamestate |= 1 << 4
+                                self.gamestate &= 0b1011111
 
                             last_clicked = None
                             legal_moves = None
@@ -203,10 +205,14 @@ class Board:
                         if isinstance(selected_piece, King):
                             # On enleve les cases où le roi est en échec
                             ennemy_pieces = self.white_pieces.copy() if selected_piece.color == NOIR else self.black_pieces.copy()
+                            # On retire le roi de sa case actuelle pour qu'il ne fausse pas l'évaluation des échecs
+                            self.board[y][x] = VIDE
                             legal_moves = list(
                                     filter(lambda position: (
                                         not self.is_in_check(position, selected_piece.color, ennemy_pieces)),
                                            pseudolegal_moves))
+                            # On remet le roi
+                            self.board[y][x] = selected_piece
 
                             # Si le roi peut roquer et qu'il n'est pas en échec
                             if (selected_piece == self.white_king and (self.gamestate & 0b11) and not (self.gamestate & 0b0010000)) \
@@ -407,7 +413,7 @@ class Board:
 
     def generate_legal_moves(self, piece, pseudolegal_moves: list[tuple[int, int]]) -> list[tuple[int, int]]:
         """
-        Génère, à partir de la liste des déplacements pseudo-légaux d'une pièce, la liste de ses déplacements légaux.
+        Génère, à partir de la liste des déplacements pseudo-légaux d'une pièce (autre que le roi), la liste de ses déplacements légaux.
         Un déplacement est légal si il ne met ou laisse pas le roi en échec.
 
         :param piece: La pièce concernée

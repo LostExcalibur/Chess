@@ -1,6 +1,5 @@
 # encoding=latin-1
 
-import piece
 from piece import Piece, VIDE
 from pieces.rook import Rook
 
@@ -51,7 +50,7 @@ class King(Piece):
         # Queenside
         if state >> 1:
             for i in range(1, 4):
-                if board[y][x - i] != piece.VIDE:
+                if board[y][x - i] != VIDE:
                     queenside = False
             if queenside:
                 if not isinstance(board[y][0], Rook) or not board[y][0].color == board[y][x].color:
@@ -59,7 +58,7 @@ class King(Piece):
         # If kingside
         if state & 1:
             for i in range(1, 3):
-                if board[y][x + i] != piece.VIDE:
+                if board[y][x + i] != VIDE:
                     kingside = False
             if kingside:
                 if not isinstance(board[y][7], Rook) or not board[y][7].color == board[y][x].color:
