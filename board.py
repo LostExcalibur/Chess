@@ -5,7 +5,6 @@ from easygui import choicebox
 
 from piece import *
 
-
 BROWN = pygame.Color(181, 136, 99)
 LAQUE = pygame.Color(240, 217, 181)
 RED = pygame.Color(255, 0, 0)
@@ -38,8 +37,9 @@ class Board:
         self.beginning_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
         self.testing_FEN = "r1bqkbnr/pppp1pp1/2n4p/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"
         self.testing_FEN2 = "rnbqkbn1/pppPppp1/5p2/7r/4R3/6P1/PPPP1PP1/RNBQKBN1 w Qq - 0 1"
+        self.castling_FEN = "rnbqk2r/pppp1ppp/4pn2/2b5/2B5/4PN2/PPPP1PPP/RNBQK2R w KQkq - 0 1"
         self.pieces, self.gamestate = \
-            self.parse_FEN(self.beginning_FEN)
+            self.parse_FEN(self.castling_FEN)
 
     def build_board(self) -> pygame.Surface:
         """
@@ -86,16 +86,49 @@ class Board:
                             self.temp_board = self.board_surface.copy()  # On nettoie la surface du plateau
                             current_x, current_y = last_clicked.current_square
                             tobetaken = self.board[y][x]
+
                             # On va prendre en-passant
                             if (x, y) == self.en_passant_square and type(last_clicked) == Pawn:
                                 tobetaken = self.board[y - 1][x] if (self.gamestate >> 6) else self.board[y + 1][x]
 
+                            # Si les blancs peuvent roquer, et si une tour noir bouge,
+                            # on enlève les droits de roque du côté correspondant
+                            # Si c'est le roi qui bouge, il perd tous ses droits de roque
+                            if self.gamestate & 0b11:
+                                if last_clicked == self.white_king:
+                                    self.gamestate &= 0b1111100
+                                    # Le roi a bougé, on vérifie si il a roqué et on déplace la tour en fonction
+                                    # Roque kingside
+                                    if x - self.white_king.current_square[0] > 1:
+                                        self.move_piece(self.board[y][x + 1], (x - 1, y))
+                                    # Roque queenside
+                                    elif x - self.white_king.current_square[0] < -1:
+                                        self.move_piece(self.board[y][x - 2], (x + 1, y))
+
+                                elif (x, y) == (0, 7) or last_clicked.current_square == (0, 7):
+                                    self.gamestate &= 0b1111101
+                                elif (x, y) == (7, 7) or last_clicked.current_square == (7, 7):
+                                    self.gamestate &= 0b1111110
+                            # Pareil avec les noirs
+                            if (self.gamestate >> 2) & 0b11:
+                                if last_clicked == self.black_king:
+                                    self.gamestate &= 0b1110011
+                                    if x - self.black_king.current_square[0] > 1:
+                                        self.move_piece(self.board[y][x + 1], (x - 1, y))
+                                    # Roque queenside
+                                    elif x - self.black_king.current_square[0] < -1:
+                                        self.move_piece(self.board[y][x - 2], (x + 1, y))
+
+                                elif (x, y) == (7, 0) or last_clicked.current_square == (7, 0):
+                                    self.gamestate &= 0b1111011
+                                elif (x, y) == (0, 0) or last_clicked.current_square == (0, 0):
+                                    self.gamestate &= 0b1110111
+
+                            # Si on prend une pièce, il faut la retirer de la liste globale des pièces et de celle des pièces de cette couleur
                             if tobetaken != VIDE:
                                 self.pieces.remove(tobetaken)
                                 (self.black_pieces if tobetaken.color == NOIR else self.white_pieces).remove(tobetaken)
-                            self.board[y][x] = last_clicked
-                            last_clicked.current_square = (x, y)
-                            self.board[current_y][current_x] = VIDE
+                            self.move_piece(last_clicked, (x, y))
 
                             self.en_passant_square = None
                             if type(last_clicked) == Pawn and (y == current_y + 2 or y == current_y - 2):
@@ -149,6 +182,7 @@ class Board:
 
                             last_clicked = None
                             legal_moves = None
+                            # self.print_gamestate()
                             continue
 
                         else:
@@ -170,8 +204,29 @@ class Board:
                             # On enleve les cases où le roi est en échec
                             ennemy_pieces = self.white_pieces.copy() if selected_piece.color == NOIR else self.black_pieces.copy()
                             legal_moves = list(
-                                filter(lambda position: (not self.is_in_check(position, selected_piece.color, ennemy_pieces)),
-                                       pseudolegal_moves))
+                                    filter(lambda position: (
+                                        not self.is_in_check(position, selected_piece.color, ennemy_pieces)),
+                                           pseudolegal_moves))
+
+                            # Si le roi peut roquer et qu'il n'est pas en échec
+                            if (selected_piece == self.white_king and (self.gamestate & 0b11) and not (self.gamestate & 0b0010000)) \
+                                    or (selected_piece == self.black_king and ((self.gamestate >> 2) & 0b11) and not (self.gamestate & 0b0100000)):
+                                state = ((self.gamestate >> 2) & 0b11) if selected_piece == self.black_king else (
+                                            self.gamestate & 0b11)
+                                queenside, kingside = selected_piece.can_castle(selected_piece.current_square,
+                                                                                self.board, state)
+                                kingx, kingy = selected_piece.current_square
+                                # On vérifie que le roi ne traverse pas d'échecs et que la destination n'est pas en échec
+                                if queenside:
+                                    if (kingx - 1, kingy) in legal_moves and not self.is_in_check((kingx - 2, kingy),
+                                                                                                  selected_piece.color,
+                                                                                                  ennemy_pieces):
+                                        legal_moves.append((kingx - 2, kingy))
+                                if kingside:
+                                    if (kingx + 1, kingy) in legal_moves and not self.is_in_check((kingx + 2, kingy),
+                                                                                                  selected_piece.color,
+                                                                                                  ennemy_pieces):
+                                        legal_moves.append((kingx + 2, kingy))
                         else:
                             legal_moves = self.generate_legal_moves(selected_piece, pseudolegal_moves)
                         if legal_moves:
@@ -334,7 +389,8 @@ class Board:
         ennemy_pieces = self.white_pieces.copy() if color == NOIR else self.black_pieces.copy()
         # On génère la liste des déplacements possibles du roi, auxquels on enlève ceux qui le mettent en échec.
         king_moves = list(
-                filter(lambda position: (not self.is_in_check(position, color, ennemy_pieces)), king.generate_all_moves(self.board)))
+                filter(lambda position: (not self.is_in_check(position, color, ennemy_pieces)),
+                       king.generate_all_moves(self.board)))
         if king_moves:
             # Si le roi peut bouger, pas besoin de vérifier plus.
             return False
@@ -387,3 +443,26 @@ class Board:
     def print_board(self):
         for line in self.board:
             print(line)
+
+    def print_gamestate(self):
+        print("Au tour des " + ("noirs" if self.gamestate >> 6 else "blancs"))
+        if (self.gamestate >> 5) & 1:
+            print("Les noirs sont en échec")
+        elif (self.gamestate >> 4) & 1:
+            print("Les blancs sont en échec")
+        print("Les noirs peuvent roquer :" + " coté dame" * ((self.gamestate >> 3) & 1) +
+              " coté roi" * ((self.gamestate >> 2) & 1))
+        print("Les blancs peuvent roquer :" + " coté dame" * ((self.gamestate >> 1) & 1) +
+              " coté roi" * (self.gamestate & 1))
+
+    def move_piece(self, piece: Piece, new_pos: tuple[int, int]) -> None:
+        """
+        Déplace une pièce du plateau à une nouvelle position, en mettant à jour sa position interne
+
+        :param piece: La pièce de l'échiquier à déplacer
+        :param new_pos: Sa nouvelle position
+        """
+        (oldx, oldy), (newx, newy) = piece.current_square, new_pos
+        self.board[oldy][oldx] = VIDE
+        self.board[newy][newx] = piece
+        piece.current_square = (newx, newy)

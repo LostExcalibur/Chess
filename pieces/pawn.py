@@ -28,7 +28,7 @@ class Pawn(Piece):
         elif color == NOIR:
             if board[y + 1][x] == VIDE and not only_captures:
                 moves.append((x, y + 1))
-                if y == 1 and board[y + 2][x] == VIDE and not only_captures: # Premier déplacement
+                if y == 1 and board[y + 2][x] == VIDE and not only_captures:  # Premier déplacement
                     moves.append((x, y + 2))
             if x < 7 and board[y + 1][x + 1] != VIDE:
                 if board[y + 1][x + 1].color != color:
@@ -40,7 +40,7 @@ class Pawn(Piece):
 
     def generate_all_moves(self, board: list[list[Piece]]) -> list[tuple[int, int]]:
         moves = self.generate_moves_for_piece(self.color, self.current_square, board)
-        if Pawn.can_en_passant(self.color, self.current_square, self.en_passant_target):
+        if self.en_passant_target and Pawn.can_en_passant(self.color, self.current_square, self.en_passant_target):
             moves.append(self.en_passant_target)
         return moves
 

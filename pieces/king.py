@@ -1,4 +1,8 @@
+# encoding=latin-1
+
+import piece
 from piece import Piece, VIDE
+from pieces.rook import Rook
 
 
 class King(Piece):
@@ -30,6 +34,37 @@ class King(Piece):
                 elif board[y + j][x + i].color != color:
                     moves.append((x + i, y + j))
         return moves
+
+    @staticmethod
+    def can_castle(position: tuple, board: list[list[Piece]], state: int) -> tuple[bool, bool]:
+        """
+        Vérifie si le roi peut roquer, sans vérifier les échecs ou si le roi ou la tour s'est déplacé.
+
+        :param position: La position actuelle du roi
+        :param board: L'état actuel de l'échiquier
+        :param state: La légalité du roque, queenside puis kingside
+        :return: La pseudolégalité du roque en terme de déplacement
+        """
+        queenside = True
+        kingside  = True
+        x, y = position
+        # Queenside
+        if state >> 1:
+            for i in range(1, 4):
+                if board[y][x - i] != piece.VIDE:
+                    queenside = False
+            if queenside:
+                if not isinstance(board[y][0], Rook) or not board[y][0].color == board[y][x].color:
+                    queenside = False
+        # If kingside
+        if state & 1:
+            for i in range(1, 3):
+                if board[y][x + i] != piece.VIDE:
+                    kingside = False
+            if kingside:
+                if not isinstance(board[y][7], Rook) or not board[y][7].color == board[y][x].color:
+                    kingside = False
+        return queenside, kingside
 
     def __repr__(self):
         return "Black " * (self.color == 1) + "White " * (self.color == 0) + super(King, self).__repr__()
