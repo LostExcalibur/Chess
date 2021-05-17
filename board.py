@@ -35,9 +35,10 @@ class Board:
 		self.white_pieces: list[Piece] = []
 		self.black_pieces: list[Piece] = []
 		self.en_passant_square = None
+		self.claiming_draw = None
 		self.black_king = self.white_king = None
 		self.white_material_count = self.black_material_count = 0
-		self.stalemate = False
+		self.draw = False
 		self.evaluation = 0
 		self.movecount = 0
 		self.halfmove = 0
@@ -185,7 +186,7 @@ class Board:
 								elif self.is_stalemate(NOIR):
 									print("Il y a pat, égalité")
 									self.running = False
-									self.stalemate = True
+									self.draw = True
 								# Les blancs viennent de jouer, donc ils ne sont forcément plus en échec
 								# sinon il y aurait eu mat au coup précédent
 								new_gamestate &= 0b1101111
@@ -199,7 +200,7 @@ class Board:
 										new_gamestate |= 1 << 4
 								elif self.is_stalemate(BLANC):
 									print("Il y a pat, égalité")
-									self.stalemate = True
+									self.draw = True
 									self.running = False
 								new_gamestate &= 0b1011111
 								self.movecount += 1
@@ -213,9 +214,16 @@ class Board:
 							castling = None
 							promoted = None
 							self.gamestate = new_gamestate
+							# La règle des 50 coups :
+							# Après 50 demi coups sans mouvement de pions ou captures, les joueurs peuvent
+							# réclamer une partie nulle
 							self.halfmove = 0 if tobetaken or isinstance(last_clicked, Pawn) else self.halfmove + 1
 							self.calculate_evaluation()
 							# self.print_gamestate()
+							# Le joueur avait reçu une proposition de partie nulle mais a joué quand même,
+							# donc l'a refusée
+							if (self.claiming_draw is not None) and (self.claiming_draw == self.gamestate >> 6):
+								self.claiming_draw = None
 							continue
 
 						else:
@@ -353,6 +361,12 @@ class Board:
 		return pieces, gamestate
 
 	def draw_on_squares(self, squares: list[tuple[int, int]], check: bool = False) -> None:
+		"""
+		Dessine la bonne image sur les cases données en fonction de l'état de la partie.
+
+		:param squares: Les cases de l'échiquier concernées
+		:param check: Si la case comporte un roi qui est en échec
+		"""
 		# for x, y in squares:
 		#     pygame.draw.rect(self.temp_board, RED,
 		#                      pygame.Rect(x * self.tilesize, y * self.tilesize, self.tilesize, self.tilesize))
@@ -497,7 +511,7 @@ class Board:
 		"""
 		self.white_material_count = sum(p.worth for p in self.white_pieces)
 		self.black_material_count = sum(p.worth for p in self.black_pieces)
-		self.evaluation = self.white_material_count - self.black_material_count if not self.stalemate else 0
+		self.evaluation = self.white_material_count - self.black_material_count if not self.draw else 0
 
 	def is_stalemate(self, color: int) -> bool:
 		"""
@@ -578,12 +592,37 @@ class Board:
 		return None
 
 	def handle_keys(self, event: pygame.event.Event):
+		# Print l'échiquier
 		if event.key == pygame.K_q:
 			self.print_board()
+		# Print l'état de la partie
 		elif event.key == pygame.K_g:
 			self.print_gamestate()
+		# Quitter le jeu
 		elif event.key == pygame.K_ESCAPE:
 			self.running = False
+		# Proposer ou réclamer la partie nulle
+		elif event.key == pygame.K_d:
+			if self.claiming_draw is None:
+				if self.halfmove > 50:
+					self.running = False
+					print("Partie nulle par règle des 50 coups.")
+				else:
+					self.claiming_draw = self.gamestate >> 6
+					print("Proposition de partie nulle par les " + ("noirs" if self.gamestate >> 6 else "blancs"))
+			else:
+				if self.gamestate >> 6 != self.claiming_draw:
+					self.running = False
+					print("Proposition de partie nulle acceptée.")
+				else:
+					self.claiming_draw = None
+					print("Annulation de la proposition de partie nulle")
+
+		# Abandonner la partie
+		elif event.key == pygame.K_r:
+			self.running = False
+			print("Les " + ("noirs" if self.gamestate >> 6 else "blancs") + " abandonnent, fin de la partie.")
+		# Naviguer parmi les coups joués
 		elif event.key == pygame.K_LEFT:
 			if self.moves:
 				# On change le joueur
