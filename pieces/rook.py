@@ -8,6 +8,7 @@ class Rook(Piece):
 
         self.current_square = position
         self.color = color
+        self.letter = "R"
         self.worth = 5
 
     @staticmethod

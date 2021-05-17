@@ -8,6 +8,7 @@ class Bishop(Piece):
 
         self.current_square = position
         self.color = color
+        self.letter = "B"
         self.worth = 3
 
     @staticmethod

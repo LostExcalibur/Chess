@@ -11,6 +11,7 @@ class King(Piece):
 
         self.current_square = position
         self.color = color
+        self.letter = "K"
         self.worth = 100
 
     def generate_all_moves(self, board: list[list[Piece]]) -> list[tuple[int, int]]:

@@ -9,6 +9,7 @@ class Knight(Piece):
 
         self.current_square = position
         self.color = color
+        self.letter = "N"
         self.worth = 3
 
     # J'ai évidemment pas trouvé ça tout seul, crédit :

@@ -10,6 +10,7 @@ class Queen(Piece):
 
         self.current_square = position
         self.color = color
+        self.letter = "Q"
         self.worth = 9
 
     @staticmethod
