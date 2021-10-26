@@ -1,4 +1,4 @@
 # Chess
 
-Pour l'instant juste un plateau d'échecs, pas encore terminé qui plus est.
-Fait avec pygame.
+Un plateau d'échecs pas totalement fonctionnel, puisque actuellement ça marche pas...
+Voir la [branche principale](https://github.com/LostExcalibur/Chess/) pour la version qui fonctionne
