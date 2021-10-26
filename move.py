@@ -32,8 +32,13 @@ class Move:
         toret += chr(ord('a') + self.to[0])
         toret += str(8 - self.to[1])
 
-        toret += "=" + self.promote.__repr__()[6] if self.promote else ''
+        toret += "=" + self.promote.__repr__()[6].upper() if self.promote else ''
 
         toret += '+' if self.check else ''
 
         return toret
+
+
+class EmptyMove(Move):
+    def __init__(self):
+        super(EmptyMove, self).__init__((-1, -1), (-1, -1), None)

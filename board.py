@@ -2,10 +2,12 @@
 
 import pygame.transform
 from easygui import choicebox
-from move import Move
+from move import Move, EmptyMove
 
 from piece import *
 from pieces.potential import Potential
+
+from random import choice
 
 BROWN = pygame.Color(181, 136, 99)
 LAQUE = pygame.Color(240, 217, 181)
@@ -26,9 +28,9 @@ class Board:
 				pygame.image.load(path.join("resources", "capture.png")),
 				(self.tilesize, self.tilesize))
 		self.check_image = pygame.transform.smoothscale(pygame.image.load(path.join("resources", "check.png")),
-		                                                (self.tilesize, self.tilesize))
+														(self.tilesize, self.tilesize))
 		self.move_image = pygame.transform.smoothscale(pygame.image.load(path.join("resources", "move.png")),
-		                                               (self.tilesize, self.tilesize))
+													   (self.tilesize, self.tilesize))
 		self.temp_board = self.board_surface.copy()
 		self.running = True
 		self.pieces: list[Piece] = []
@@ -38,20 +40,24 @@ class Board:
 		self.claiming_draw = None
 		self.black_king = self.white_king = None
 		self.white_material_count = self.black_material_count = 0
+		self.nodes = 0
 		self.draw = False
 		self.evaluation = 0
+		self.white_min = -99999
+		self.black_min = 99999
 		self.movecount = 0
 		self.halfmove = 0
 		self.moves: list[Move] = []
+		self.best_move_sequence: list[Move] = []
 		self.travelled_moves: list[Move] = []
 		self.board = [[VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
-		              [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
-		              [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
-		              [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
-		              [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
-		              [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
-		              [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
-		              [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE]]
+					  [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
+					  [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
+					  [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
+					  [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
+					  [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
+					  [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE],
+					  [VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE, VIDE]]
 		self.beginning_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 		self.testing_FEN = "r1bqkbnr/pppp1pp1/2n4p/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"
 		self.testing_FEN2 = "rnbqkbn1/pppPppp1/5p2/7r/4R3/6P1/PPPP1PP1/RNBQKBN1 w Qq - 0 1"
@@ -76,7 +82,7 @@ class Board:
 			for y in range(8):
 				if (x + y) % 2:
 					pygame.draw.rect(board, LAQUE, pygame.Rect(x * self.tilesize, y * self.tilesize,
-					                                           self.tilesize, self.tilesize))
+															   self.tilesize, self.tilesize))
 		# Il faut la retourner selon les x, car pygame a son axe vertical (y) vers le bas
 		board = pygame.transform.flip(board, True, False)
 		return board
@@ -92,6 +98,7 @@ class Board:
 		legal_moves = None
 		castling = None
 		promoted = None
+		print(self.find_best_move(self.gamestate >> 6))
 		while self.running:
 			# Boucle d'évènements
 			for event in pygame.event.get():
@@ -108,6 +115,7 @@ class Board:
 					y: int
 					if last_clicked is not None and legal_moves and not self.travelled_moves:  # Le joueur avait cliqué sur une autre pièce avant
 						if (x, y) in legal_moves:  # et essaie de la déplacer
+							print(x, y)
 							self.temp_board = self.board_surface.copy()  # On nettoie la surface du plateau
 							current_x, current_y = last_clicked.current_square
 							tobetaken = self.board[y][x]
@@ -206,8 +214,8 @@ class Board:
 								self.movecount += 1
 
 							self.moves.append(Move((x, y), (current_x, current_y), last_clicked, self.gamestate,
-							                       new_gamestate, tobetaken if tobetaken else None, castling,
-							                       promoted, bool(new_gamestate & 0b0110000)))
+												   new_gamestate, tobetaken if tobetaken else None, castling,
+												   promoted, bool(new_gamestate & 0b0110000)))
 
 							last_clicked = None
 							legal_moves = None
@@ -219,6 +227,7 @@ class Board:
 							# réclamer une partie nulle
 							self.halfmove = 0 if tobetaken or isinstance(last_clicked, Pawn) else self.halfmove + 1
 							self.calculate_evaluation()
+							print(self.find_best_move(self.gamestate >> 6))
 							# self.print_gamestate()
 							# Le joueur avait reçu une proposition de partie nulle mais a joué quand même,
 							# donc l'a refusée
@@ -259,10 +268,11 @@ class Board:
 			self.screen.blit(self.temp_board, self.temp_board.get_rect())
 			for piece in self.pieces:
 				self.screen.blit(piece.image,
-				                 (piece.current_square[0] * self.tilesize,
-				                  piece.current_square[1] * self.tilesize))
+								 (piece.current_square[0] * self.tilesize,
+								  piece.current_square[1] * self.tilesize))
 			pygame.display.update()
-		self.print_gamestate()
+
+	# self.print_gamestate()
 
 	def parse_FEN(self, fen: str) -> tuple[list[Piece], int]:
 		"""
@@ -486,12 +496,14 @@ class Board:
 		elif (self.gamestate >> 4) & 1:
 			print("Les blancs sont en échec")
 		print("Les noirs peuvent roquer :" + " coté dame" * ((self.gamestate >> 3) & 1) +
-		      " coté roi" * ((self.gamestate >> 2) & 1))
+			  " coté roi" * ((self.gamestate >> 2) & 1))
 		print("Les blancs peuvent roquer :" + " coté dame" * ((self.gamestate >> 1) & 1) +
-		      " coté roi" * (self.gamestate & 1))
+			  " coté roi" * (self.gamestate & 1))
 		print(self.moves)
 		print("Nombre de coups :", self.movecount)
+		self.calculate_evaluation()
 		print("Evaluation de la position :", self.evaluation)
+		print("Current best move :", self.find_best_move(self.gamestate >> 6))
 
 	def move_piece(self, piece: Piece, new_pos: tuple[int, int]) -> None:
 		"""
@@ -512,6 +524,9 @@ class Board:
 		self.white_material_count = sum(p.worth for p in self.white_pieces)
 		self.black_material_count = sum(p.worth for p in self.black_pieces)
 		self.evaluation = self.white_material_count - self.black_material_count if not self.draw else 0
+		for piece in self.pieces:
+			self.evaluation += ((piece.color == NOIR) * (-1) + (piece.color == BLANC)) * \
+							   piece.get_positional_score(*piece.current_square)
 
 	def is_stalemate(self, color: int) -> bool:
 		"""
@@ -541,7 +556,7 @@ class Board:
 		legal_moves = list(
 				filter(lambda position: (
 						not self.is_in_check(position, king.color, ennemy_pieces)),
-				       pseudolegal_moves))
+					   pseudolegal_moves))
 		# On remet le roi
 		self.board[y][x] = king
 
@@ -551,34 +566,34 @@ class Board:
 			state = ((self.gamestate >> 2) & 0b11) if king == self.black_king else (
 					self.gamestate & 0b11)
 			queenside, kingside = king.can_castle(king.current_square,
-			                                      self.board, state)
+												  self.board, state)
 			kingx, kingy = king.current_square
 			# On vérifie que le roi ne traverse pas d'échecs et que la destination n'est pas en échec
 			if queenside:
 				if (kingx - 1, kingy) in legal_moves and not self.is_in_check((kingx - 2, kingy),
-				                                                              king.color,
-				                                                              ennemy_pieces):
+																			  king.color,
+																			  ennemy_pieces):
 					legal_moves.append((kingx - 2, kingy))
 			if kingside:
 				if (kingx + 1, kingy) in legal_moves and not self.is_in_check((kingx + 2, kingy),
-				                                                              king.color,
-				                                                              ennemy_pieces):
+																			  king.color,
+																			  ennemy_pieces):
 					legal_moves.append((kingx + 2, kingy))
 		return legal_moves
 
-	def promote_pawn(self, pawn: Piece, gui_choice: bool = True, choice=Queen):
+	def promote_pawn(self, pawn: Piece, gui_choice: bool = True, chosen=Queen):
 		x, y = pawn.current_square
 		if (pawn.color == BLANC and y == 0) or (pawn.color == NOIR and y == 7):
 			if gui_choice:
 				new_piece = choicebox("What do you want to promote to ?",
-				                      choices=["Queen", "Rook", "Bishop", "Knight"])
+									  choices=["Queen", "Rook", "Bishop", "Knight"])
 				if new_piece is None:  # Le joueur a cliqué "Cancel", donc par défaut on fait une dame
 					promoted = Queen(pawn.color, (x, y), self.tilesize)
 				else:
 					promoted = Piece.new_piece(pawn.color, PIECES[new_piece], (x, y),
-					                           self.tilesize)
+											   self.tilesize)
 			else:
-				promoted = choice(pawn.color, (x, y), self.tilesize)
+				promoted = chosen(pawn.color, (x, y), self.tilesize)
 			self.pieces.remove(pawn)
 			self.pieces.append(promoted)
 			if promoted.color == BLANC:
@@ -629,37 +644,11 @@ class Board:
 				self.gamestate ^= (1 << 6)
 				last_move = self.moves.pop()
 				self.travelled_moves.append(last_move)
+				self.revert_move(last_move)
 
-				piece = last_move.piece
-
-				self.move_piece(piece, last_move.orig)
-				if last_move.taken:
-					x, y = last_move.to
-					self.board[y][x] = last_move.taken
-					self.pieces.append(last_move.taken)
-					(self.black_pieces if piece.color == BLANC else self.white_pieces).append(last_move.taken)
-
-				if last_move.promote:
-					self.pieces.remove(last_move.promote)
-					self.pieces.append(last_move.piece)
-					(self.black_pieces if piece.color == NOIR else self.white_pieces).remove(last_move.promote)
-					(self.black_pieces if piece.color == NOIR else self.white_pieces).append(piece)
-
-				if last_move.castle is not None:
-					x, y = last_move.to
-					# Queenside
-					if last_move.castle:
-						self.move_piece(self.board[y][x + 1], (x - 2, y))
-					else:
-						self.move_piece(self.board[y][x - 1], (x + 1, y))
-
-				self.temp_board = self.board_surface.copy()
-
-				self.gamestate = last_move.old_gamestate
-
-			# self.saved_gamestate = self.gamestate
-			# self.saved_pieces = self.pieces.copy()
-			# self.saved_board = [line.copy() for line in self.board]
+		# self.saved_gamestate = self.gamestate
+		# self.saved_pieces = self.pieces.copy()
+		# self.saved_board = [line.copy() for line in self.board]
 
 		elif event.key == pygame.K_RIGHT:
 			if self.travelled_moves:
@@ -671,27 +660,108 @@ class Board:
 
 				self.gamestate ^= (1 << 6)
 				last_move = self.travelled_moves.pop()
-				piece = last_move.piece
 				self.moves.append(last_move)
+				self.do_move(last_move)
 
-				self.move_piece(piece, last_move.to)
+	# Partie IA
 
-				if last_move.taken:
-					self.pieces.remove(last_move.taken)
-					(self.white_pieces if piece.color == NOIR else self.black_pieces).remove(last_move.taken)
+	def find_best_move(self, to_play: int, depth: int) -> Move:
+		ally_pieces = self.black_pieces if to_play == NOIR else self.white_pieces
 
-				if last_move.promote:
-					self.pieces.append(last_move.promote)
-					self.pieces.remove(piece)
-					(self.black_pieces if piece.color == NOIR else self.white_pieces).append(last_move.promote)
-					(self.black_pieces if piece.color == NOIR else self.white_pieces).remove(piece)
+		moves = []
+		self.nodes = 0
+		self.turn_sequence = [EmptyMove()] * depth
+		self.current_turn_sequence = [EmptyMove()] * depth
 
-				if last_move.castle is not None:
-					x, y = last_move.to
-					# Queenside
-					if last_move.castle:
-						self.move_piece(self.board[y][x - 2], (x + 1, y))
-					else:
-						self.move_piece(self.board[y][x + 1], (x - 1, y))
 
-				self.gamestate = last_move.new_gamestate
+
+		# for piece in ally_pieces:
+		# 	piece: Piece
+		# 	if isinstance(piece, Pawn) and self.en_passant_square:
+		# 		piece: Pawn
+		# 		piece.en_passant_target = self.en_passant_square
+		# 	pseudolegal_moves = piece.generate_all_moves(self.board)
+		# 	if isinstance(piece, King):
+		# 		ennemy_pieces = self.white_pieces.copy() if piece.color == NOIR else self.black_pieces.copy()
+		#
+		# 		for move in self.legal_king_moves(piece, ennemy_pieces, pseudolegal_moves):
+		# 			moves.append(Move(move, piece.current_square, piece, self.gamestate, self.gamestate,
+		# 							  self.board[move[1]][move[0]]))
+		# 	else:
+		# 		for move in self.generate_legal_moves(piece, pseudolegal_moves):
+		# 			moves.append(Move(move, piece.current_square, piece, self.gamestate, self.gamestate,
+		# 							  self.board[move[1]][move[0]]))
+		#
+		# maxi = 0
+		# best = None
+		# for move in moves:
+		# 	if move.taken:
+		# 		if move.taken.worth > maxi:
+		# 			best = move
+		# return best if best else choice(moves)
+
+	def alpha_beta(self, color: int, alpha: int, beta: int, depth: int) -> int:
+		if color == BLANC:
+			value = self.white_min
+			for piece in self.white_pieces:
+				potential_moves = self.generate_legal_moves(piece, piece.generate_all_moves(self.board))
+				for move in potential_moves:
+					self.nodes += 1
+					self.do_move(move)
+
+
+
+
+
+	def do_move(self, move: Move) -> None:
+		piece = move.piece
+
+		self.move_piece(piece, move.to)
+
+		if move.taken:
+			self.pieces.remove(move.taken)
+			(self.white_pieces if piece.color == NOIR else self.black_pieces).remove(move.taken)
+
+		if move.promote:
+			self.pieces.append(move.promote)
+			self.pieces.remove(piece)
+			(self.black_pieces if piece.color == NOIR else self.white_pieces).append(move.promote)
+			(self.black_pieces if piece.color == NOIR else self.white_pieces).remove(piece)
+
+		if move.castle is not None:
+			x, y = move.to
+			# Queenside
+			if move.castle:
+				self.move_piece(self.board[y][x - 2], (x + 1, y))
+			else:
+				self.move_piece(self.board[y][x + 1], (x - 1, y))
+
+		self.gamestate = move.new_gamestate
+
+	def revert_move(self, move: Move):
+		piece = move.piece
+
+		self.move_piece(piece, move.orig)
+		if move.taken:
+			x, y = move.to
+			self.board[y][x] = move.taken
+			self.pieces.append(move.taken)
+			(self.black_pieces if piece.color == BLANC else self.white_pieces).append(move.taken)
+
+		if move.promote:
+			self.pieces.remove(move.promote)
+			self.pieces.append(move.piece)
+			(self.black_pieces if piece.color == NOIR else self.white_pieces).remove(move.promote)
+			(self.black_pieces if piece.color == NOIR else self.white_pieces).append(piece)
+
+		if move.castle is not None:
+			x, y = move.to
+			# Queenside
+			if move.castle:
+				self.move_piece(self.board[y][x + 1], (x - 2, y))
+			else:
+				self.move_piece(self.board[y][x - 1], (x + 1, y))
+
+		self.temp_board = self.board_surface.copy()
+
+		self.gamestate = move.old_gamestate

@@ -93,6 +93,9 @@ class Piece(pygame.sprite.Sprite):
 		:return: La liste des déplacements pseudolégaux pour la pièce
 		"""
 		pass
+	
+	def get_positional_score(self, x: int, y: int) -> int:
+		pass
 
 
 # On importe à la fin pour éviter les problèmes d'importation circulaire
