@@ -1,4 +1,5 @@
 # Chess
 
-Pour l'instant juste un plateau d'échecs, pas encore terminé qui plus est.
-Fait avec pygame.
+Un plateau d'échec entièrement fonctionnel (enfin j'espère)
+
+Début d'implémentation d'une IA sur la branche [dev](https://github.com/LostExcalibur/Chess/tree/dev/IA)
